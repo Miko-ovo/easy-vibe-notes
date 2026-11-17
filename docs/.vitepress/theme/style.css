@@ -1,0 +1,72 @@
+:root {
+  --vp-c-brand-1: #10a37f;
+  --vp-c-brand-2: #0e9271;
+  --vp-c-brand-3: #0c8465;
+  --vp-c-brand-soft: rgba(16, 163, 127, 0.14);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #10a37f 30%, #41d1a5);
+}
+
+/* 首页 Hero */
+.VPHero .name,
+.VPHero .text { white-space: normal !important; }
+
+/* 项目卡片墙 */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.project-card {
+  display: block;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  padding: 18px 20px;
+  background: var(--vp-c-bg-soft);
+  text-decoration: none !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.project-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--vp-c-brand-1);
+}
+.project-card h3 {
+  margin: 0 0 8px !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  color: var(--vp-c-brand-1) !important;
+}
+.project-card p {
+  margin: 0 !important;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+.project-card .project-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  margin-bottom: 8px;
+}
+
+/* 笔记信息块 */
+.note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.note-meta span {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  font-weight: 500;
+}

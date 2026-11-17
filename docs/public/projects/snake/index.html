@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贪吃蛇 · 第一个作业</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #ecfdf5 0%, #f8fafc 50%, #ecfdf5 100%);
+    color: #0f172a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 12px;
+  }
+  header { text-align: center; margin-bottom: 16px; }
+  header h1 {
+    font-size: 26px; font-weight: 700; color: #047857;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  header h1 .badge {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: #059669; color: #fff; font-size: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  header p { font-size: 13px; color: #64748b; margin-top: 6px; }
+
+  .layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .info-col { display: flex; flex-direction: column; gap: 10px; width: 150px; }
+  .card {
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(167,243,208,.7);
+    border-radius: 12px; padding: 12px 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.06);
+    backdrop-filter: blur(4px);
+  }
+  .card .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+  .card .value { font-size: 22px; font-weight: 700; margin-top: 2px; }
+  .v-amber { color: #d97706; } .v-rose { color: #e11d48; } .v-emerald { color: #059669; } .v-sky { color: #0284c7; }
+
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .board {
+    position: relative; border-radius: 16px; padding: 14px;
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(167,243,208,.7);
+    box-shadow: 0 10px 30px rgba(0,0,0,.12);
+    backdrop-filter: blur(4px);
+  }
+  .board-inner { position: relative; width: min(92vw, 504px); height: min(92vw, 504px); border-radius: 12px; overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+
+  .overlay {
+    position: absolute; inset: 0;
+    background: rgba(2,6,23,.72); backdrop-filter: blur(2px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 16px; gap: 0;
+  }
+  .overlay.hidden { display: none; }
+  .overlay .icon {
+    width: 56px; height: 56px; border-radius: 16px; font-size: 26px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
+  }
+  .icon-idle { background: rgba(16,185,129,.2); } .icon-pause { background: rgba(245,158,11,.2); } .icon-over { background: rgba(244,63,94,.2); }
+  .overlay h2 { color: #fff; font-size: 20px; font-weight: 600; }
+  .overlay .tip { color: #cbd5e1; font-size: 13px; margin: 6px 0 16px; max-width: 280px; line-height: 1.6; }
+  .scores { display: flex; align-items: center; gap: 18px; margin: 10px 0 16px; }
+  .scores .num { font-size: 24px; font-weight: 700; }
+  .scores .s-rose { color: #fda4af; } .scores .s-amber { color: #fcd34d; }
+  .scores .divider { width: 1px; height: 32px; background: rgba(255,255,255,.2); }
+  .scores .cap { font-size: 11px; color: #94a3b8; }
+
+  .btn {
+    border: none; cursor: pointer; font-weight: 600; font-size: 14px;
+    padding: 10px 22px; border-radius: 10px; transition: transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: #059669; color: #fff; }
+  .btn-primary:hover { background: #047857; }
+  .btn-amber { background: #f59e0b; color: #fff; }
+  .btn-ghost { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+  .help-card { width: 170px; }
+  .help-card h3 { font-size: 13px; color: #334155; margin-bottom: 10px; }
+  .help-card ul { list-style: none; font-size: 12px; color: #64748b; display: flex; flex-direction: column; gap: 8px; }
+  .help-card li { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 22px; padding: 0 5px;
+    border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc;
+    font-size: 11px; font-family: inherit; color: #334155; box-shadow: 0 1px 0 #cbd5e1;
+  }
+  .rule-list { list-style: disc; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
+
+  .dpad { display: grid; grid-template-columns: repeat(3, 48px); gap: 8px; }
+  .dpad button {
+    height: 48px; border-radius: 10px; border: 1px solid rgba(167,243,208,.9);
+    background: #fff; font-size: 18px; color: #047857; cursor: pointer;
+  }
+  .dpad button:active { transform: scale(.94); background: #d1fae5; }
+  .dpad .empty { visibility: hidden; }
+  @media (min-width: 1100px) { .dpad-wrap { display: none; } }
+  footer { margin-top: 18px; font-size: 12px; color: #94a3b8; }
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="badge">🍎</span> 贪吃蛇</h1>
+    <p>用方向键 / WASD 控制蛇移动，吃到食物变长，撞墙或撞到自己游戏结束</p>
+  </header>
+
+  <div class="layout">
+    <div class="info-col">
+      <div class="card"><div class="label">🏆 最高分</div><div class="value v-amber" id="high">0</div></div>
+      <div class="card"><div class="label">🍎 当前分数</div><div class="value v-rose" id="score">0</div></div>
+      <div class="card"><div class="label">⚡ 速度等级</div><div class="value v-emerald" id="speed">1</div></div>
+      <div class="card"><div class="label">LEN 蛇身长度</div><div class="value v-sky" id="len">3</div></div>
+    </div>
+
+    <div class="stage">
+      <div class="board">
+        <div class="board-inner">
+          <canvas id="cv" width="504" height="504"></canvas>
+          <div class="overlay" id="ov">
+            <div class="icon icon-idle" id="ov-icon">▶</div>
+            <h2 id="ov-title">准备开始</h2>
+            <p class="tip" id="ov-tip">用方向键或 WASD 控制蛇移动，空格暂停</p>
+            <div class="scores hidden" id="ov-scores" style="display:none">
+              <div><div class="cap">本局得分</div><div class="num s-rose" id="ov-score">0</div></div>
+              <div class="divider"></div>
+              <div><div class="cap">最高分</div><div class="num s-amber" id="ov-high">0</div></div>
+            </div>
+            <button class="btn btn-primary" id="ov-btn">开始游戏</button>
+          </div>
+        </div>
+      </div>
+      <div class="controls"><button class="btn btn-primary" id="main-btn">开始游戏</button></div>
+      <div class="dpad-wrap dpad">
+        <div class="empty"></div><button data-d="UP">↑</button><div class="empty"></div>
+        <button data-d="LEFT">←</button><button data-d="DOWN">↓</button><button data-d="RIGHT">→</button>
+      </div>
+    </div>
+
+    <div class="info-col">
+      <div class="card help-card">
+        <h3>操作说明</h3>
+        <ul>
+          <li><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 控制方向</li>
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 同上</li>
+          <li><kbd>空格</kbd> 暂停 / 继续</li>
+          <li><kbd>Enter</kbd> 开始 / 重玩</li>
+        </ul>
+      </div>
+      <div class="card help-card">
+        <h3>游戏规则</h3>
+        <ul class="rule-list">
+          <li>吃到红色食物，蛇身变长，分数 +10</li>
+          <li>每吃一颗食物，速度会略微提升</li>
+          <li>撞到墙壁或自己身体即游戏结束</li>
+          <li>蛇无法直接反向（防止自杀）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>第一个 Vibe Coding 作业 · 原生 Canvas 贪吃蛇</footer>
+
+<script>
+// ---- 配置（与作业源码一致）----
+const GRID = 21, CELL = 24, SIZE = GRID * CELL
+const INITIAL_SPEED = 140, MIN_SPEED = 70, SPEED_STEP = 4, SCORE_PER_FOOD = 10
+const VEC = { UP:{x:0,y:-1}, DOWN:{x:0,y:1}, LEFT:{x:-1,y:0}, RIGHT:{x:1,y:0} }
+const OPPOSITE = { UP:'DOWN', DOWN:'UP', LEFT:'RIGHT', RIGHT:'LEFT' }
+const INITIAL_SNAKE = [{x:10,y:10},{x:9,y:10},{x:8,y:10}]
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d')
+let snake, food, direction, nextDirection, speed, pulse = 0
+let status = 'idle', score = 0, timer = null, raf = null
+let high = parseInt(localStorage.getItem('snake-high-score') || '0', 10) || 0
+
+const $ = id => document.getElementById(id)
+$('high').textContent = high
+
+function generateFood(s) {
+  const occupied = new Set(s.map(p => p.x + ',' + p.y))
+  const c = []
+  for (let x = 0; x < GRID; x++) for (let y = 0; y < GRID; y++)
+    if (!occupied.has(x + ',' + y)) c.push({ x, y })
+  return c[Math.floor(Math.random() * c.length)] || { x: 0, y: 0 }
+}
+
+function roundRect(x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
+}
+
+function draw() {
+  const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE)
+  bg.addColorStop(0, '#0f1f17'); bg.addColorStop(1, '#16261d')
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, SIZE, SIZE)
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1
+  for (let i = 0; i <= GRID; i++) {
+    const pos = i * CELL + 0.5
+    ctx.beginPath(); ctx.moveTo(pos, 0); ctx.lineTo(pos, SIZE); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, pos); ctx.lineTo(SIZE, pos); ctx.stroke()
+  }
+
+  // 食物：脉动圆形 + 高光 + 叶子
+  const p = 0.5 + 0.5 * Math.sin(pulse)
+  const fx = food.x * CELL + CELL / 2, fy = food.y * CELL + CELL / 2
+  const fr = CELL * 0.35 + p * 1.5
+  ctx.shadowColor = 'rgba(244,63,94,0.6)'; ctx.shadowBlur = 12 + p * 6
+  ctx.fillStyle = '#f43f5e'
+  ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill()
+  ctx.shadowBlur = 0
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  ctx.beginPath(); ctx.arc(fx - fr * 0.3, fy - fr * 0.3, fr * 0.25, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#22c55e'
+  ctx.beginPath(); ctx.ellipse(fx + 1, fy - fr + 1, 2.5, 4, -0.5, 0, Math.PI * 2); ctx.fill()
+
+  // 蛇身：头翠绿 -> 尾深青渐变
+  for (let i = snake.length - 1; i >= 0; i--) {
+    const seg = snake[i], x = seg.x * CELL, y = seg.y * CELL
+    const isHead = i === 0, t = i / Math.max(snake.length - 1, 1)
+    const r = Math.round(34 + (16 - 34) * t)
+    const g = Math.round(197 + (110 - 197) * t)
+    const b = Math.round(94 + (70 - 94) * t)
+    ctx.fillStyle = `rgb(${r},${g},${b})`
+    roundRect(x + 2, y + 2, CELL - 4, CELL - 4, isHead ? 8 : 6); ctx.fill()
+    if (isHead) {
+      const d = VEC[direction], cx = x + CELL / 2, cy = y + CELL / 2
+      const px = -d.y, py = d.x, eo = 4, er = 2.5
+      const e1x = cx + d.x * eo + px * 4, e1y = cy + d.y * eo + py * 4
+      const e2x = cx + d.x * eo - px * 4, e2y = cy + d.y * eo - py * 4
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(e1x, e1y, er, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(e2x, e2y, er, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#0f1f17'
+      ctx.beginPath(); ctx.arc(e1x + d.x, e1y + d.y, 1.3, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(e2x + d.x, e2y + d.y, 1.3, 0, Math.PI * 2); ctx.fill()
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'
+      roundRect(x + 5, y + 5, CELL - 10, (CELL - 10) / 2, 3); ctx.fill()
+    }
+  }
+}
+
+function animLoop() { pulse += 0.08; draw(); raf = requestAnimationFrame(animLoop) }
+raf = requestAnimationFrame(animLoop)
+
+function gameOver() {
+  setStatus('over')
+  if (score > high) { high = score; localStorage.setItem('snake-high-score', String(high)); $('high').textContent = high }
+}
+
+// 主循环：setTimeout 链，速度变化即时生效
+function scheduleStep() {
+  timer = setTimeout(() => {
+    if (status !== 'playing') return
+    if (nextDirection !== OPPOSITE[direction]) direction = nextDirection
+    const v = VEC[direction], head = snake[0]
+    const nh = { x: head.x + v.x, y: head.y + v.y }
+    if (nh.x < 0 || nh.x >= GRID || nh.y < 0 || nh.y >= GRID) return gameOver()
+    for (let i = 0; i < snake.length - 1; i++)
+      if (snake[i].x === nh.x && snake[i].y === nh.y) return gameOver()
+    const ns = [nh, ...snake]
+    if (nh.x === food.x && nh.y === food.y) {
+      food = generateFood(ns)
+      score = (ns.length - INITIAL_SNAKE.length) * SCORE_PER_FOOD
+      $('score').textContent = score
+      $('len').textContent = ns.length
+      speed = Math.max(MIN_SPEED, speed - SPEED_STEP)
+      $('speed').textContent = Math.floor((INITIAL_SPEED - speed) / SPEED_STEP) + 1
+    } else ns.pop()
+    snake = ns
+    scheduleStep()
+  }, speed)
+}
+
+function setStatus(s) {
+  status = s
+  const ov = $('ov'), btn = $('ov-btn'), scores = $('ov-scores')
+  const icon = $('ov-icon'), title = $('ov-title'), tip = $('ov-tip'), main = $('main-btn')
+  if (s === 'playing') { ov.classList.add('hidden'); main.textContent = '暂停'; main.className = 'btn btn-ghost'; return }
+  ov.classList.remove('hidden')
+  const conf = {
+    idle:  { icon: '▶', cls: 'icon-idle',  title: '准备开始', tip: '用方向键或 WASD 控制蛇移动，空格暂停', btn: '开始游戏', main: '开始游戏', mc: 'btn-primary' },
+    paused:{ icon: '⏸', cls: 'icon-pause', title: '已暂停', tip: '按空格或点击下方按钮继续', btn: '继续游戏', main: '继续', mc: 'btn-primary' },
+    over:  { icon: '↻', cls: 'icon-over',  title: '游戏结束', tip: '', btn: '重新开始', main: '重新开始', mc: 'btn-primary' }
+  }[s]
+  icon.textContent = conf.icon; icon.className = 'icon ' + conf.cls
+  title.textContent = conf.title; tip.textContent = conf.tip
+  btn.textContent = conf.btn; main.textContent = conf.main; main.className = 'btn ' + conf.mc
+  if (s === 'over') {
+    tip.style.display = 'none'; scores.style.display = 'flex'
+    $('ov-score').textContent = score; $('ov-high').textContent = high
+  } else { tip.style.display = ''; scores.style.display = 'none' }
+}
+
+function startGame() {
+  snake = INITIAL_SNAKE.map(p => ({ ...p }))
+  food = generateFood(snake)
+  direction = nextDirection = 'RIGHT'
+  speed = INITIAL_SPEED; score = 0
+  $('score').textContent = 0; $('len').textContent = 3; $('speed').textContent = 1
+  setStatus('playing'); scheduleStep()
+}
+function togglePause() {
+  if (status === 'playing') setStatus('paused')
+  else if (status === 'paused') setStatus('playing')
+  else if (status === 'idle' || status === 'over') startGame()
+}
+$('main-btn').onclick = togglePause
+$('ov-btn').onclick = togglePause
+document.querySelectorAll('.dpad button').forEach(b => {
+  b.onclick = () => {
+    const d = b.dataset.d
+    if (status === 'playing' && d !== OPPOSITE[direction]) nextDirection = d
+  }
+})
+
+const KEYMAP = { ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT', w:'UP', s:'DOWN', a:'LEFT', d:'RIGHT', W:'UP', S:'DOWN', A:'LEFT', D:'RIGHT' }
+window.addEventListener('keydown', e => {
+  if (KEYMAP[e.key]) {
+    e.preventDefault()
+    if (status === 'playing' && KEYMAP[e.key] !== OPPOSITE[direction]) nextDirection = KEYMAP[e.key]
+  } else if (e.key === ' ') { e.preventDefault(); togglePause() }
+  else if (e.key === 'Enter' && (status === 'idle' || status === 'over')) startGame()
+})
+
+snake = INITIAL_SNAKE.map(p => ({ ...p })); food = { x: 14, y: 10 }; direction = 'RIGHT'; nextDirection = 'RIGHT'; speed = INITIAL_SPEED
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>提示词实验室</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #f0fdf9 0%, #f8fafc 60%);
+    color: #1e293b;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 {
+    font-size: 24px;
+    background: linear-gradient(120deg, #10a37f, #41d1a5);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+  }
+  header p { color: #64748b; font-size: 14px; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.04);
+  }
+  .panel h2 { font-size: 15px; margin-bottom: 14px; color: #0f766e; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #334155; }
+  .field label small { font-weight: 400; color: #94a3b8; }
+  textarea, select, input {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-size: 13.5px;
+    font-family: inherit;
+    background: #f8fafc;
+    color: inherit;
+    resize: vertical;
+  }
+  textarea:focus, input:focus, select:focus { outline: none; border-color: #10a37f; background: #fff; }
+  textarea { min-height: 58px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+  .chip {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 12.5px;
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s;
+  }
+  .chip.on { background: #10a37f; border-color: #10a37f; color: #fff; }
+  .output {
+    background: #0f172a;
+    color: #d1fae5;
+    border-radius: 10px;
+    padding: 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 230px;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 14px; }
+  button {
+    flex: 1;
+    border: none;
+    border-radius: 9px;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .1s, opacity .15s;
+  }
+  button:active { transform: scale(.98); }
+  #copy { background: #10a37f; color: #fff; }
+  #copy:disabled { opacity: .5; cursor: not-allowed; }
+  #clear { background: #f1f5f9; color: #475569; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #475569; margin-bottom: 8px; cursor: pointer; }
+  .check input { width: auto; }
+  footer { text-align: center; margin-top: 22px; font-size: 12px; color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🧪 提示词实验室</h1>
+    <p>按「任务 / 输入 / 要求 / 输出」四要素组装结构化 Prompt —— 来自《提示词工程导论》</p>
+  </header>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>① 填写要素</h2>
+      <div class="field">
+        <label>任务 <small>你要 AI 做什么？</small></label>
+        <textarea id="task" placeholder="例如：把下面的会议记录整理成行动项清单">把下面的会议记录整理成行动项清单</textarea>
+      </div>
+      <div class="field">
+        <label>输入 <small>你给 AI 什么材料？（可留空）</small></label>
+        <textarea id="input" placeholder="例如：粘贴会议记录原文……"></textarea>
+      </div>
+      <div class="field">
+        <label>要求 <small>做到什么程度？</small></label>
+        <input id="req" placeholder="例如：每条一行、标注负责人和截止日期">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>输出格式</label>
+          <select id="fmt">
+            <option value="Markdown 列表">Markdown 列表</option>
+            <option value="JSON 数组">JSON 数组</option>
+            <option value="Markdown 表格">Markdown 表格</option>
+            <option value="纯文本">纯文本</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>长度</label>
+          <select id="len">
+            <option value="">不限</option>
+            <option value="100 字以内">100 字以内</option>
+            <option value="300 字以内">300 字以内</option>
+            <option value="10 条以内，每条一句话">10 条以内，每条一句话</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>口吻 / 角色 <small>（可选）</small></label>
+        <div class="opts" id="roles">
+          <span class="chip" data-v="严谨的技术专家">严谨的技术专家</span>
+          <span class="chip" data-v="通俗的科普作者">通俗的科普作者</span>
+          <span class="chip" data-v="严厉的面试官">严厉的面试官</span>
+          <span class="chip" data-v="耐心的入门导师">耐心的入门导师</span>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="ask"> ➕ 允许反问（信息不足时先列 3 个确认问题）</label>
+      <label class="check"><input type="checkbox" id="selfcheck" checked> ➕ 要求自检（输出前检查是否满足全部约束）</label>
+    </div>
+
+    <div class="panel">
+      <h2>② 生成的 Prompt</h2>
+      <div class="output" id="out">在左侧填写要素，Prompt 会实时生成在这里……</div>
+      <div class="actions">
+        <button id="copy">📋 复制 Prompt</button>
+        <button id="clear">清空</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>提示词是"调"出来的 —— 跑通 → 测稳定性 → 打补丁</footer>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id)
+  let role = ''
+  document.querySelectorAll('#roles .chip').forEach(c => {
+    c.onclick = () => {
+      document.querySelectorAll('#roles .chip').forEach(x => x.classList.remove('on'))
+      if (role === c.dataset.v) { role = '' } else { role = c.dataset.v; c.classList.add('on') }
+      render()
+    }
+  })
+
+  function build() {
+    const task = $('task').value.trim()
+    const input = $('input').value.trim()
+    const req = $('req').value.trim()
+    const fmt = $('fmt').value
+    const len = $('len').value
+    if (!task) return null
+    const lines = []
+    if (role) lines.push(`角色：你是一位${role}。`)
+    lines.push(`任务：${task}`)
+    if (input) lines.push(`输入："""\n${input}\n"""`)
+    const reqs = [req, len && `长度${len}`, `输出格式为${fmt}`].filter(Boolean).join('；')
+    if (reqs) lines.push(`要求：${reqs}。`)
+    if ($('ask').checked) lines.push(`注意：如果我提供的信息不够充分，请先列出你需要确认的 3 个问题，不要直接生成方案。`)
+    if ($('selfcheck').checked) lines.push(`注意：在输出最终结果前，请先检查是否满足了所有约束条件。`)
+    return lines.join('\n\n')
+  }
+
+  function render() {
+    const p = build()
+    $('out').textContent = p || '在左侧填写要素，Prompt 会实时生成在这里……'
+    $('copy').disabled = !p
+  }
+
+  document.querySelectorAll('textarea, input, select').forEach(el => el.addEventListener('input', render))
+  $('copy').onclick = () => navigator.clipboard.writeText($('out').textContent).then(() => {
+    $('copy').textContent = '✅ 已复制'
+    setTimeout(() => ($('copy').textContent = '📋 复制 Prompt'), 1200)
+  })
+  $('clear').onclick = () => {
+    ['task', 'input', 'req'].forEach(i => ($(i).value = ''))
+    $('len').value = ''; role = ''
+    document.querySelectorAll('#roles .chip').forEach(x => x.classList.remove('on'))
+    render()
+  }
+  render()
+</script>
+</body>
+</html>
