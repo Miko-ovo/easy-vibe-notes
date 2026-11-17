@@ -3,12 +3,12 @@
 学习过程中完成的所有练手项目集中在这里，点击卡片查看详情与在线演示。
 
 <div class="project-grid">
-  <a class="project-card" href="/projects/demo-project">
+  <a class="project-card" href="./demo-project/">
     <span class="project-tag">示例项目</span>
     <h3>提示词实验室</h3>
     <p>根据「任务 / 输入 / 要求 / 输出」四要素自动生成结构化 Prompt 的交互式小工具。</p>
   </a>
-  <a class="project-card" href="/projects/snake">
+  <a class="project-card" href="./snake/">
     <span class="project-tag">✅ 第一个作业</span>
     <h3>贪吃蛇小游戏</h3>
     <p>原生 Canvas 贪吃蛇：变速主循环、方向缓冲、最高分持久化，附带移动端虚拟方向键。</p>

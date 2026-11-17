@@ -4,6 +4,8 @@ export default defineConfig({
   lang: 'zh-CN',
   title: 'Easy-Vibe 学习笔记',
   description: '跟着 Easy-Vibe 教程学习 Vibe Coding 的个人笔记与项目展示',
+  // GitHub Pages 项目站点需要子路径；本地开发用 /
+  base: process.env.CI ? '/easy-vibe-notes/' : '/',
   ignoreDeadLinks: true,
   themeConfig: {
     siteTitle: '📚 Easy-Vibe 学习笔记',

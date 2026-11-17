@@ -1,9 +1,13 @@
 <script setup>
-defineProps({
+import { withBase } from 'vitepress'
+
+const props = defineProps({
   src: { type: String, required: true },
   title: { type: String, default: '交互式演示' },
   height: { type: String, default: '520px' }
 })
+
+const fullSrc = withBase(props.src)
 </script>
 
 <template>
@@ -11,9 +15,9 @@ defineProps({
     <div class="demo-embed-bar">
       <span class="demo-embed-dots"><i></i><i></i><i></i></span>
       <span class="demo-embed-title">{{ title }}</span>
-      <a class="demo-embed-link" :href="src" target="_blank" rel="noopener">在新窗口打开 ↗</a>
+      <a class="demo-embed-link" :href="fullSrc" target="_blank" rel="noopener">在新窗口打开 ↗</a>
     </div>
-    <iframe :src="src" :style="{ height }" loading="lazy" allowfullscreen></iframe>
+    <iframe :src="fullSrc" :style="{ height }" loading="lazy" allowfullscreen></iframe>
   </div>
 </template>
 
