@@ -38,13 +38,33 @@
     width: 236px; flex-shrink: 0; background: #fff; border-right: 1px solid #e8e9eb;
     display: flex; flex-direction: column;
   }
-  .side-head { padding: 10px 10px 6px; }
+  .side-head { padding: 10px 10px 6px; display: flex; gap: 6px; align-items: center; }
+  .side-head input { flex: 1; }
+  #btn-quick-new {
+    width: 28px; height: 28px; flex-shrink: 0; border: none; background: #f2f3f5; color: #3370ff;
+    border-radius: 6px; font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  #btn-quick-new:hover { background: #e8efff; }
   .side-head input {
     width: 100%; border: none; background: #f2f3f5; border-radius: 7px;
     padding: 6px 10px; font-size: 13px; outline: none;
   }
   .files { flex: 1; overflow-y: auto; padding: 4px 6px 20px; }
-  .fgroup { font-size: 11px; color: #8f959e; padding: 12px 8px 4px; font-weight: 600; }
+  .fgroup {
+    font-size: 11px; color: #8f959e; padding: 12px 8px 4px; font-weight: 600;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .fgroup .fg-add {
+    border: none; background: transparent; color: #8f959e; cursor: pointer;
+    font-size: 12px; width: 18px; height: 18px; border-radius: 4px; line-height: 1; padding: 0;
+    display: none;
+  }
+  .fgroup:hover .fg-add { display: block; }
+  .fg-add:hover { background: #e8e9eb; color: #3370ff; }
+  .rename-inp {
+    flex: 1; min-width: 0; border: 1px solid #3370ff; border-radius: 4px; font-size: 13px;
+    padding: 1px 4px; outline: none; background: #fff; color: #1f2329; font-family: inherit;
+  }
   .fitem {
     padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #1f2329;
     display: flex; align-items: center; line-height: 1.5;
@@ -250,7 +270,10 @@
 
 <div class="layout">
   <aside>
-    <div class="side-head"><input id="search" placeholder="搜索笔记…"></div>
+    <div class="side-head">
+      <input id="search" placeholder="搜索笔记…">
+      <button id="btn-quick-new" title="新建笔记（新建后直接输入名字）">＋</button>
+    </div>
     <div class="files" id="files"></div>
   </aside>
 
@@ -287,16 +310,6 @@
   <div class="dlg-btns">
     <button class="btn" id="dlg-cancel">取消</button>
     <button class="btn primary" id="dlg-ok">创建</button>
-  </div>
-</dialog>
-
-<dialog id="dlg-rename">
-  <h3>重命名文件</h3>
-  <label>新路径（含目录，以 .md 结尾）</label>
-  <input id="rename-input">
-  <div class="dlg-btns">
-    <button class="btn" id="rename-cancel">取消</button>
-    <button class="btn primary" id="rename-ok">确定</button>
   </div>
 </dialog>
 
@@ -1017,12 +1030,13 @@ async function loadFiles() {
     .forEach(dir => {
       const hit = groups[dir].filter(f => !q || f.path.toLowerCase().includes(q) || (f.title || '').toLowerCase().includes(q))
       if (!hit.length) return
-      wrap.insertAdjacentHTML('beforeend', `<div class="fgroup">${GROUP_LABEL[dir] || dir}</div>`)
+      const addBtn = dir === '/' ? '' : `<button class="fg-add" data-dir="${dir}" title="在此分组新建笔记">＋</button>`
+      wrap.insertAdjacentHTML('beforeend', `<div class="fgroup"><span>${GROUP_LABEL[dir] || dir}</span>${addBtn}</div>`)
       hit.forEach(f => {
         const label = f.path === 'index.md' ? '首页' : (f.title || f.path.split('/').pop().replace('.md', ''))
         const ops = f.path === 'index.md' ? '' : `
           <span class="fops">
-            <button data-op="rename" title="重命名">✎</button>
+            <button data-op="rename" title="重命名（只改文件名）">✎</button>
             <button data-op="del" title="删除">✕</button>
           </span>`
         wrap.insertAdjacentHTML('beforeend', `
@@ -1033,31 +1047,66 @@ async function loadFiles() {
     })
   wrap.querySelectorAll('.fitem').forEach(el => {
     el.onclick = e => {
+      if (e.target.tagName === 'INPUT') return
       const op = e.target.dataset && e.target.dataset.op
-      if (op === 'rename') return renameFile(el.dataset.p)
+      if (op === 'rename') return beginRename(el.dataset.p)
       if (op === 'del') return deleteFile(el.dataset.p)
       openFile(el.dataset.p)
     }
   })
+  wrap.querySelectorAll('.fg-add').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation()
+      $('new-dir').value = el.dataset.dir
+      $('new-name').value = ''
+      $('new-title').value = ''
+      $('dlg-new').showModal()
+      $('new-name').focus()
+    }
+  })
 }
 
-async function renameFile(oldPath) {
-  $('rename-input').value = oldPath
-  $('dlg-rename').showModal()
-  $('rename-ok').onclick = async () => {
-    const newPath = $('rename-input').value.trim()
+// 就地重命名（Obsidian 式：只改文件名，不动目录）
+function beginRename(oldPath) {
+  const el = document.querySelector(`.fitem[data-p="${CSS.escape(oldPath)}"]`)
+  if (!el || el.querySelector('.rename-inp')) return
+  const label = el.querySelector('.flabel')
+  const dir = oldPath.split('/').slice(0, -1).join('/')
+  const oldName = oldPath.split('/').pop().replace(/\.md$/, '')
+  const inp = document.createElement('input')
+  inp.className = 'rename-inp'
+  inp.value = oldName
+  label.style.display = 'none'
+  label.after(inp)
+  inp.focus()
+  inp.select()
+  let done = false
+  const finish = async commit => {
+    if (done) return
+    done = true
+    const newName = inp.value.trim().replace(/\.md$/, '')
+    inp.remove()
+    label.style.display = ''
+    if (!commit || !newName || newName === oldName) return
+    const newPath = (dir ? dir + '/' : '') + newName + '.md'
     const r = await (await fetch('/api/rename', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath, newPath })
     })).json()
-    if (r.ok) {
-      $('dlg-rename').close()
-      toast('已重命名（站点侧边栏路径需在 config.mts 同步修改）')
-      if (curPath === oldPath) curPath = null
-      await loadFiles()
-      if (newPath && r.path) openFile(r.path)
-    } else toast(r.error, true)
+    if (!r.ok) return toast(r.error, true)
+    toast('已重命名，站点侧边栏链接需在 config.mts 同步')
+    if (curPath === oldPath) {
+      curPath = newPath
+      $('crumb').textContent = 'docs/' + newPath
+      localStorage.setItem('editor-last-path', newPath)
+    }
+    loadFiles()
   }
+  inp.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true) }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false) }
+  }
+  inp.onblur = () => finish(true)
 }
 
 async function deleteFile(p) {
@@ -1130,7 +1179,6 @@ $('title').oninput = () => { title = $('title').value; dirty = true; schedulePre
 $('fmbar').onclick = () => $('fmarea').classList.toggle('show')
 $('fmta').oninput = () => { frontmatter = $('fmta').value; dirty = true; schedulePreview() }
 $('search').oninput = loadFiles
-$('rename-cancel').onclick = () => $('dlg-rename').close()
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save() }
   if (e.key === 'Escape') $('menu').style.display = 'none'
@@ -1150,6 +1198,24 @@ $('dlg-ok').onclick = async () => {
   })).json()
   if (r.ok) { $('dlg-new').close(); await loadFiles(); openFile(path); toast('已创建，记得在 config.mts 侧边栏注册') }
   else toast(r.error, true)
+}
+
+// 快速新建（Obsidian 式）：落在当前笔记所在分组，创建后立即就地输入名字
+$('btn-quick-new').onclick = async () => {
+  const dir = curPath ? (curPath.split('/').slice(0, -1).join('/') || 'notes/stage1') : 'notes/stage1'
+  const { files } = await (await fetch('/api/index')).json()
+  const taken = new Set(files.map(f => f.path))
+  let name = '未命名笔记', n = 2
+  while (taken.has(dir + '/' + name + '.md')) name = '未命名笔记 ' + (n++)
+  const path = dir + '/' + name + '.md'
+  const r = await (await fetch('/api/create', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, title: name })
+  })).json()
+  if (!r.ok) return toast(r.error, true)
+  await loadFiles()
+  openFile(path)
+  setTimeout(() => beginRename(path), 200)
 }
 
 let toastTimer
