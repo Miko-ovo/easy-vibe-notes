@@ -18,16 +18,28 @@
 | 📎 附录笔记 | 提示词工程导论等 |
 | 🏆 项目展示 | 贪吃蛇（第一个作业）、提示词实验室 |
 
-## ✍️ 如何使用
+## ✍️ 如何更新内容
 
-- **添加笔记**：在 `docs/notes/` 对应阶段目录新建 `.md` 文件，再到 `docs/.vitepress/config.mts` 的 `sidebar` 注册，模板见站内[《如何写学习笔记》](https://miko-ovo.github.io/easy-vibe-notes/guide/how-to-note)
-- **展示小项目**：把静态页面放进 `docs/public/projects/<项目名>/`，笔记里用 `<DemoEmbed>` 组件内嵌，详见[《如何展示小项目》](https://miko-ovo.github.io/easy-vibe-notes/guide/how-to-project)
+推荐用内置的**本地块编辑器**（飞书式所见即所得，仅本机运行，不会出现在线上站点）：
+
+```bash
+npm run dev      # 终端 1：站点预览 http://localhost:5173
+npm run editor   # 终端 2：编辑器 http://localhost:5176
+```
+
+- 左侧文件树可直接**新建 / 重命名 / 删除**笔记
+- 编辑区即预览：直接打字，输入 `#`、`-`、`[]`、`>`、`` ``` `` 自动变换块样式
+- 块可拖动排序，块间悬停出现插入线
+- 保存后站点热更新，点「发布」自动 commit + push，约 1 分钟线上生效
+
+> 新增/删除笔记后，记得在 `docs/.vitepress/config.mts` 的 `sidebar` 同步侧边栏条目。
 
 ## 💻 本地运行
 
 ```bash
 npm install
 npm run dev        # 开发预览 http://localhost:5173
+npm run editor     # 块编辑器 http://localhost:5176
 npm run build      # 构建产物到 docs/.vitepress/dist
 ```
 

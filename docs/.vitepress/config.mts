@@ -13,7 +13,6 @@ export default defineConfig({
       { text: '首页', link: '/' },
       { text: '学习笔记', link: '/notes/stage1/01-first-game' },
       { text: '项目展示', link: '/projects/' },
-      { text: '使用指南', link: '/guide/how-to-note' },
       {
         text: '原教程',
         items: [
@@ -23,15 +22,6 @@ export default defineConfig({
       }
     ],
     sidebar: {
-      '/guide/': [
-        {
-          text: '使用指南',
-          items: [
-            { text: '如何写学习笔记', link: '/guide/how-to-note' },
-            { text: '如何展示小项目', link: '/guide/how-to-project' }
-          ]
-        }
-      ],
       '/notes/': [
         {
           text: '🚀 第一阶段 · 零基础入门',

@@ -115,6 +115,28 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, path: body.path })
     }
 
+    if (p === '/api/rename' && req.method === 'POST') {
+      const body = await readBody(req)
+      const from = resolveMd(body.oldPath)
+      const to = resolveMd(body.newPath)
+      if (!from || !to) return json(res, 400, { error: '非法路径（需以 .md 结尾，位于 docs/ 下）' })
+      if (!fs.existsSync(from)) return json(res, 400, { error: '原文件不存在' })
+      if (fs.existsSync(to)) return json(res, 400, { error: '目标文件已存在' })
+      fs.mkdirSync(path.dirname(to), { recursive: true })
+      fs.renameSync(from, to)
+      return json(res, 200, { ok: true, path: body.newPath })
+    }
+
+    if (p === '/api/delete' && req.method === 'POST') {
+      const body = await readBody(req)
+      const full = resolveMd(body.path)
+      if (!full) return json(res, 400, { error: '非法路径' })
+      if (body.path === 'index.md') return json(res, 400, { error: '首页不能删除' })
+      if (!fs.existsSync(full)) return json(res, 400, { error: '文件不存在' })
+      fs.unlinkSync(full)
+      return json(res, 200, { ok: true })
+    }
+
     if (p === '/api/publish' && req.method === 'POST') {
       const body = await readBody(req)
       const msg = String(body.message || 'update notes').slice(0, 100)
