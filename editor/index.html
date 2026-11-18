@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✍️ 笔记编辑器（仅本地）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f7f8fa; color: #1f2329; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    background: #fff; border-bottom: 1px solid #e5e6eb; flex-shrink: 0;
+  }
+  header .logo { font-weight: 700; font-size: 15px; }
+  header .badge { font-size: 10px; background: #fef3e2; color: #d97706; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  header .file-now { flex: 1; text-align: center; font-size: 13px; color: #646a73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn {
+    border: 1px solid #e5e6eb; background: #fff; border-radius: 8px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer; color: #1f2329; white-space: nowrap;
+  }
+  .btn:hover { background: #f2f3f5; }
+  .btn.primary { background: #10a37f; border-color: #10a37f; color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: #0c8465; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  #pub-msg { font-size: 12px; color: #646a73; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .layout { flex: 1; display: flex; overflow: hidden; }
+
+  aside {
+    width: 240px; background: #fff; border-right: 1px solid #e5e6eb;
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  aside .side-head { padding: 12px 14px 6px; display: flex; gap: 8px; }
+  aside input.search {
+    flex: 1; border: 1px solid #e5e6eb; border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  }
+  aside .files { flex: 1; overflow-y: auto; padding: 6px 8px 16px; }
+  .fgroup { font-size: 11px; color: #8f959e; padding: 10px 8px 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .fitem {
+    padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    color: #1f2329; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .fitem:hover { background: #f2f3f5; }
+  .fitem.on { background: rgba(16,163,127,.12); color: #0c8465; font-weight: 600; }
+
+  main { flex: 1; display: flex; overflow: hidden; }
+  #edit-col { flex: 1.2; overflow-y: auto; padding: 28px 8% 40vh; }
+  #edit-col.narrow { flex: 1; }
+  #title {
+    width: 100%; border: none; outline: none; background: transparent;
+    font-size: 28px; font-weight: 700; padding: 6px 0 14px; color: #1f2329;
+    font-family: inherit;
+  }
+
+  /* 块 */
+  .blk {
+    position: relative; border-radius: 10px; margin: 4px 0; padding: 8px 10px 8px 12px;
+    border: 1px solid transparent; transition: background .12s;
+  }
+  .blk:hover { background: #fff; border-color: #e5e6eb; }
+  .blk:focus-within { background: #fff; border-color: #10a37f; box-shadow: 0 0 0 2px rgba(16,163,127,.12); }
+  .blk .tools {
+    position: absolute; right: 8px; top: 6px; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; z-index: 2;
+  }
+  .blk:hover .tools, .blk:focus-within .tools { opacity: 1; }
+  .tools button {
+    border: none; background: #f2f3f5; width: 24px; height: 24px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; color: #4e5461;
+  }
+  .tools button:hover { background: #e5e6eb; }
+  .tools .del:hover { background: #fde8e8; color: #d92d20; }
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 5px;
+    margin-bottom: 4px; letter-spacing: .03em;
+  }
+  .t-h2 { background: #e8f3ff; color: #2563eb; } .t-h3 { background: #e8f3ff; color: #3b82f6; }
+  .t-code { background: #1f2329; color: #a5d6ff; } .t-text { background: #f2f3f5; color: #646a73; }
+  .t-tip { background: rgba(16,163,127,.14); color: #0c8465; }
+  .t-warning { background: #fef3e2; color: #d97706; } .t-danger { background: #fde8e8; color: #d92d20; }
+  .t-info { background: #e8f3ff; color: #2563eb; }
+  .t-ul { background: #f4e8ff; color: #7c3aed; } .t-task { background: #f4e8ff; color: #7c3aed; }
+  .t-quote { background: #f2f3f5; color: #646a73; } .t-table { background: #fff4e5; color: #b45309; }
+  .t-image { background: #ffe8f0; color: #db2777; } .t-demo { background: rgba(16,163,127,.14); color: #0c8465; }
+  .t-divider { background: #f2f3f5; color: #646a73; }
+
+  .blk textarea, .blk input {
+    width: 100%; border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 14px; line-height: 1.7; color: #1f2329; resize: none;
+  }
+  .blk textarea { display: block; }
+  .blk textarea.code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px;
+    background: #0f172a; color: #d1fae5; border-radius: 8px; padding: 10px 12px;
+  }
+  .blk .mrow { display: flex; gap: 8px; margin-top: 6px; }
+  .blk .mrow input {
+    border: 1px solid #e5e6eb; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: #fafafa;
+  }
+  .blk .divider-line { height: 2px; background: #e5e6eb; border-radius: 2px; margin: 8px 0; }
+
+  .add-bar { margin: 14px 0; }
+  .add-btn {
+    width: 100%; border: 1px dashed #c9cdd4; background: transparent; border-radius: 10px;
+    padding: 10px; font-size: 13px; color: #8f959e; cursor: pointer;
+  }
+  .add-btn:hover { border-color: #10a37f; color: #10a37f; background: rgba(16,163,127,.05); }
+
+  /* 插入菜单 */
+  #menu {
+    position: fixed; z-index: 50; background: #fff; border: 1px solid #e5e6eb; border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.14); padding: 8px; width: 460px; display: none;
+    grid-template-columns: repeat(5, 1fr); gap: 4px;
+  }
+  .mi { border: none; background: transparent; border-radius: 8px; padding: 8px 4px; cursor: pointer; text-align: center; }
+  .mi:hover { background: rgba(16,163,127,.08); }
+  .mi .ico { font-size: 18px; display: block; }
+  .mi .lb { font-size: 11px; color: #4e5461; display: block; margin-top: 3px; }
+
+  /* 预览 */
+  #preview-col {
+    flex: 1; border-left: 1px solid #e5e6eb; background: #f2f3f5;
+    display: none; flex-direction: column; overflow: hidden;
+  }
+  #preview-col.show { display: flex; }
+  .pv-bar { padding: 8px 12px; background: #fff; border-bottom: 1px solid #e5e6eb; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #646a73; }
+  .pv-bar a { color: #10a37f; text-decoration: none; }
+  #pv { flex: 1; border: none; width: 100%; }
+
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1f2329; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px;
+    transition: transform .25s; z-index: 99; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.err { background: #d92d20; }
+
+  dialog { border: 1px solid #e5e6eb; border-radius: 14px; padding: 20px; width: 380px; }
+  dialog h3 { margin-bottom: 14px; }
+  dialog label { display: block; font-size: 12px; color: #646a73; margin: 10px 0 4px; }
+  dialog input, dialog select { width: 100%; border: 1px solid #e5e6eb; border-radius: 8px; padding: 7px 10px; font-size: 13px; }
+  dialog .dlg-btns { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">✍️ 笔记编辑器</span>
+  <span class="badge">仅本地 · 观众不可见</span>
+  <span class="file-now" id="file-now">未打开文件</span>
+  <span id="pub-msg"></span>
+  <button class="btn" id="btn-new">＋ 新笔记</button>
+  <button class="btn" id="btn-save">💾 保存 ⌘S</button>
+  <button class="btn" id="btn-pv">👁 预览</button>
+  <button class="btn primary" id="btn-pub">🚀 发布到 GitHub</button>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="side-head">
+      <input class="search" id="search" placeholder="搜索文件…">
+    </div>
+    <div class="files" id="files"></div>
+  </aside>
+
+  <main>
+    <div id="edit-col">
+      <input id="title" placeholder="未打开文件" disabled>
+      <div id="blocks"></div>
+      <div class="add-bar"><button class="add-btn" id="add-btn">＋ 输入 / 或点击插入块（代码块、提示框、列表…）</button></div>
+    </div>
+
+    <div id="preview-col">
+      <div class="pv-bar">
+        <span>站点实时预览（VitePress 保存后自动热更新）</span>
+        <a id="pv-open" href="#" target="_blank">新窗口打开 ↗</a>
+      </div>
+      <iframe id="pv"></iframe>
+    </div>
+  </main>
+</div>
+
+<div id="menu"></div>
+<div id="toast"></div>
+
+<dialog id="dlg-new">
+  <h3>新建笔记</h3>
+  <label>位置</label>
+  <select id="new-dir">
+    <option value="notes/stage1/">第一阶段 · 零基础入门</option>
+    <option value="notes/stage2/">第二阶段 · 全栈开发</option>
+    <option value="notes/stage3/">第三阶段 · 高级进阶</option>
+    <option value="notes/appendix/">附录</option>
+    <option value="projects/">项目展示</option>
+    <option value="guide/">使用指南</option>
+  </select>
+  <label>文件名（英文，如 06-my-note）</label>
+  <input id="new-name" placeholder="06-my-note">
+  <label>标题</label>
+  <input id="new-title" placeholder="06 · 我的笔记">
+  <div class="dlg-btns">
+    <button class="btn" id="dlg-cancel">取消</button>
+    <button class="btn primary" id="dlg-ok">创建</button>
+  </div>
+</dialog>
+
+<script>
+const API = ''
+const SITE = 'http://localhost:5173'
+let curPath = null
+let blocks = []
+let title = ''
+let dirty = false
+
+const $ = id => document.getElementById(id)
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+let uid = 0; const nid = () => 'b' + (++uid)
+
+// ---------- 块类型 ----------
+const TYPES = [
+  { t:'h2',      lb:'标题',   ico:'🅷',   tag:'H2',      cls:'t-h2' },
+  { t:'h3',      lb:'小标题', ico:'🅷',   tag:'H3',      cls:'t-h3' },
+  { t:'text',    lb:'正文',   ico:'✏️',   tag:'正文',    cls:'t-text' },
+  { t:'code',    lb:'代码块', ico:'</>',  tag:'代码',    cls:'t-code' },
+  { t:'tip',     lb:'提示',   ico:'💡',   tag:'TIP',     cls:'t-tip' },
+  { t:'warning', lb:'警告',   ico:'⚠️',   tag:'警告',    cls:'t-warning' },
+  { t:'danger',  lb:'危险',   ico:'🚫',   tag:'危险',    cls:'t-danger' },
+  { t:'info',    lb:'信息',   ico:'ℹ️',   tag:'INFO',    cls:'t-info' },
+  { t:'ul',      lb:'列表',   ico:'•',    tag:'列表',    cls:'t-ul' },
+  { t:'task',    lb:'待办',   ico:'☑',    tag:'待办',    cls:'t-task' },
+  { t:'quote',   lb:'引用',   ico:'❝',    tag:'引用',    cls:'t-quote' },
+  { t:'table',   lb:'表格',   ico:'▦',    tag:'表格',    cls:'t-table' },
+  { t:'image',   lb:'图片',   ico:'🖼',   tag:'图片',    cls:'t-image' },
+  { t:'demo',    lb:'演示嵌入',ico:'▶',   tag:'DEMO',    cls:'t-demo' },
+  { t:'divider', lb:'分隔线', ico:'—',    tag:'---',     cls:'t-divider' },
+]
+const TMAP = Object.fromEntries(TYPES.map(x => [x.t, x]))
+
+function blk(t, lines = [], meta = {}) { return { id: nid(), t, lines, meta } }
+
+// ---------- Markdown -> 块 ----------
+const BLOCK_START = /^(```|:::\s|#{1,6}\s|[-*]\s|>\s|\||---\s*$|!\[|<\w)/
+
+function parse(content) {
+  blocks = []; title = ''
+  const lines = content.split('\n')
+  let i = 0
+  if (lines[0] && /^# /.test(lines[0])) { title = lines[0].slice(2); i++ }
+  while (i < lines.length && lines[i].trim() === '') i++
+  while (i < lines.length) {
+    const l = lines[i]
+    if (/^```/.test(l)) {
+      const lang = l.slice(3).trim(); const buf = []; i++
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++])
+      i++; blocks.push(blk('code', buf, { lang })); continue
+    }
+    if (/^:::\s/.test(l)) {
+      const parts = l.slice(3).trim().split(/\s+/)
+      const kind = parts[0] || 'tip'; const ctitle = parts.slice(1).join(' ')
+      const buf = []; i++
+      while (i < lines.length && !/^:::/.test(lines[i])) buf.push(lines[i++])
+      i++; blocks.push(blk(kind, buf, { title: ctitle })); continue
+    }
+    if (/^<DemoEmbed/.test(l)) {
+      const src = (l.match(/src="([^"]*)"/) || [])[1] || ''
+      const dt = (l.match(/title="([^"]*)"/) || [])[1] || '交互式演示'
+      const h = (l.match(/height="([^"]*)"/) || [])[1] || '520px'
+      blocks.push(blk('demo', [], { src, title: dt, height: h })); i++; continue
+    }
+    if (/^!\[([^\]]*)\]\(([^)]*)\)$/.test(l)) {
+      blocks.push(blk('image', [], { alt: RegExp.$1, src: RegExp.$2 })); i++; continue
+    }
+    if (/^#{2,6}\s/.test(l)) {
+      blocks.push(blk(l.startsWith('## ') ? 'h2' : 'h3', [l.replace(/^#{2,6}\s/, '')])); i++; continue
+    }
+    if (/^[-*]\s\[.\]/.test(l)) {
+      const buf = []; while (i < lines.length && /^[-*]\s\[.\]/.test(lines[i])) buf.push(lines[i++].replace(/^[-*]\s\[.\]\s?/, ''))
+      blocks.push(blk('task', buf)); continue
+    }
+    if (/^[-*]\s/.test(l)) {
+      const buf = []; while (i < lines.length && /^[-*]\s/.test(lines[i]) && !/^[-*]\s\[.\]/.test(lines[i])) buf.push(lines[i++].replace(/^[-*]\s/, ''))
+      blocks.push(blk('ul', buf)); continue
+    }
+    if (/^>\s/.test(l)) {
+      const buf = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''))
+      blocks.push(blk('quote', buf)); continue
+    }
+    if (/^\|/.test(l)) {
+      const buf = []; while (i < lines.length && /^\|/.test(lines[i])) buf.push(lines[i++])
+      blocks.push(blk('table', buf)); continue
+    }
+    if (/^---\s*$/.test(l)) { blocks.push(blk('divider')); i++; continue }
+    if (BLOCK_START.test(l)) { // 兜底（如自定义 HTML）
+      const buf = []; while (i < lines.length && lines[i].trim() !== '' && !BLOCK_START.test(lines[i]) === false) buf.push(lines[i++])
+      blocks.push(blk('text', buf)); continue
+    }
+    const buf = []
+    while (i < lines.length && lines[i].trim() !== '' && !BLOCK_START.test(lines[i])) buf.push(lines[i++])
+    blocks.push(blk('text', buf.length ? buf : ['']))
+  }
+}
+
+// ---------- 块 -> Markdown ----------
+function serialize() {
+  const out = [`# ${title}`, '']
+  for (const b of blocks) {
+    const L = b.lines
+    switch (b.t) {
+      case 'h2': out.push(`## ${L[0] || ''}`); break
+      case 'h3': out.push(`### ${L[0] || ''}`); break
+      case 'text': out.push(L.join('\n')); break
+      case 'code': out.push('```' + (b.meta.lang || '') + '\n' + L.join('\n') + '\n```'); break
+      case 'tip': case 'warning': case 'danger': case 'info':
+        out.push(`::: ${b.t}${b.meta.title ? ' ' + b.meta.title : ''}\n${L.join('\n')}\n:::`); break
+      case 'ul': out.push(L.map(x => `- ${x}`).join('\n')); break
+      case 'task': out.push(L.map(x => `- [ ] ${x}`).join('\n')); break
+      case 'quote': out.push(L.map(x => `> ${x}`).join('\n')); break
+      case 'table': out.push(L.join('\n')); break
+      case 'image': out.push(`![${b.meta.alt || ''}](${b.meta.src || ''})`); break
+      case 'demo': out.push(`<DemoEmbed src="${b.meta.src}" title="${b.meta.title}" height="${b.meta.height}" />`); break
+      case 'divider': out.push('---'); break
+    }
+    out.push('')
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n'
+}
+
+// ---------- 渲染 ----------
+function render() {
+  const wrap = $('blocks')
+  wrap.innerHTML = ''
+  blocks.forEach((b, idx) => {
+    const def = TMAP[b.t]
+    const el = document.createElement('div')
+    el.className = 'blk'
+    el.dataset.id = b.id
+    el.innerHTML = `<div class="tools">
+        <button data-a="up" title="上移">↑</button>
+        <button data-a="down" title="下移">↓</button>
+        <button data-a="del" class="del" title="删除">✕</button>
+      </div>
+      <span class="tag ${def.cls}">${def.tag}</span>`
+
+    const body = document.createElement('div')
+    if (['h2','h3','text','code','ul','task','quote','table'].includes(b.t)) {
+      const ta = document.createElement('textarea')
+      ta.value = b.lines.join('\n')
+      if (b.t === 'code') { ta.className = 'code'; ta.spellcheck = false }
+      if (['h2','h3'].includes(b.t)) ta.rows = 1
+      else ta.rows = Math.max(2, b.lines.length + 1)
+      ta.oninput = () => { b.lines = ta.value.split('\n'); autoGrow(ta); dirty = true }
+      ta.onfocus = () => ta.setAttribute('data-ph', '')
+      ta.placeholder = { h2: '标题文字…', h3: '小标题…', code: '代码…', table: '| 列1 | 列2 |\n| --- | --- |\n| a | b |' }[b.t] || ''
+      if (b.t === 'code' && b.meta.lang !== undefined) {
+        const lang = document.createElement('input')
+        lang.placeholder = '语言（js / bash / html…）'
+        lang.value = b.meta.lang
+        lang.style.cssText = 'border:1px solid #e5e6eb;border-radius:6px;padding:4px 8px;font-size:12px;background:#fafafa;margin-bottom:6px;width:180px'
+        lang.oninput = () => { b.meta.lang = lang.value; dirty = true }
+        body.appendChild(lang)
+      }
+      body.appendChild(ta)
+      setTimeout(() => autoGrow(ta))
+    } else if (b.t === 'tip' || b.t === 'warning' || b.t === 'danger' || b.t === 'info') {
+      const ct = document.createElement('input')
+      ct.placeholder = '容器标题（可留空）'; ct.value = b.meta.title || ''
+      ct.style.cssText = 'font-weight:600;margin-bottom:6px'
+      ct.oninput = () => { b.meta.title = ct.value; dirty = true }
+      const ta = document.createElement('textarea')
+      ta.value = b.lines.join('\n'); ta.rows = Math.max(2, b.lines.length + 1)
+      ta.oninput = () => { b.lines = ta.value.split('\n'); autoGrow(ta); dirty = true }
+      body.appendChild(ct); body.appendChild(ta); setTimeout(() => autoGrow(ta))
+    } else if (b.t === 'image') {
+      body.innerHTML = `<div class="mrow"><input data-m="src" placeholder="图片地址 /images/xx.png" value="${esc(b.meta.src || '')}" style="flex:2"><input data-m="alt" placeholder="描述" value="${esc(b.meta.alt || '')}" style="flex:1"></div>`
+    } else if (b.t === 'demo') {
+      body.innerHTML = `<div class="mrow"><input data-m="src" placeholder="项目地址 /projects/xx/index.html" value="${esc(b.meta.src || '')}" style="flex:2"><input data-m="title" placeholder="标题" value="${esc(b.meta.title || '')}" style="flex:1"><input data-m="height" placeholder="高度 520px" value="${esc(b.meta.height || '520px')}" style="flex:1"></div>`
+    } else if (b.t === 'divider') {
+      body.innerHTML = '<div class="divider-line"></div>'
+    }
+    el.appendChild(body)
+
+    el.addEventListener('click', e => {
+      const a = e.target.dataset?.a
+      if (!a) return
+      const i = blocks.findIndex(x => x.id === b.id)
+      if (a === 'del') { blocks.splice(i, 1); dirty = true; render() }
+      if (a === 'up' && i > 0) { [blocks[i-1], blocks[i]] = [blocks[i], blocks[i-1]]; dirty = true; render() }
+      if (a === 'down' && i < blocks.length - 1) { [blocks[i+1], blocks[i]] = [blocks[i], blocks[i+1]]; dirty = true; render() }
+    })
+    body.querySelectorAll('input[data-m]').forEach(inp => {
+      inp.oninput = () => { b.meta[inp.dataset.m] = inp.value; dirty = true }
+    })
+    wrap.appendChild(el)
+  })
+  if (!blocks.length) wrap.innerHTML = '<p style="color:#8f959e;font-size:13px;padding:20px 0">还没有内容块，点击下方插入或用 / 快捷添加</p>'
+}
+
+function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px' }
+
+// ---------- 插入菜单 ----------
+function showMenu(anchor) {
+  const m = $('menu')
+  m.innerHTML = TYPES.map(x => `<button class="mi" data-t="${x.t}"><span class="ico">${x.ico}</span><span class="lb">${x.lb}</span></button>`).join('')
+  m.style.display = 'grid'
+  const r = anchor.getBoundingClientRect()
+  m.style.left = Math.min(r.left, innerWidth - 480) + 'px'
+  m.style.top = Math.min(r.bottom + 6, innerHeight - 260) + 'px'
+  m.querySelectorAll('.mi').forEach(btn => btn.onclick = () => {
+    const t = btn.dataset.t
+    const meta = t === 'code' ? { lang: '' } : t === 'demo' ? { src: '/projects/xxx/index.html', title: '演示', height: '520px' } : t === 'image' ? { src: '', alt: '' } : {}
+    const seed = { h2: [''], h3: [''], text: [''], code: [''], tip: [''], warning: [''], danger: [''], info: [''], ul: [''], task: [''], quote: [''], table: ['| 列1 | 列2 |', '| --- | --- |', '| a | b |'] }[t]
+    blocks.push(blk(t, seed || [], meta))
+    dirty = true
+    m.style.display = 'none'
+    render()
+    const last = $('blocks').lastElementChild
+    last?.querySelector('textarea, input')?.focus()
+  })
+}
+document.addEventListener('click', e => {
+  const m = $('menu')
+  if (m.style.display === 'grid' && !m.contains(e.target) && e.target !== $('add-btn')) m.style.display = 'none'
+})
+$('add-btn').onclick = e => { e.stopPropagation(); showMenu($('add-btn')) }
+
+// ---------- 文件列表 ----------
+async function loadFiles() {
+  const { files } = await (await fetch(API + '/api/files')).json()
+  const groups = {}
+  for (const f of files) {
+    const dir = f.split('/').slice(0, -1).join('/') || '/'
+    ;(groups[dir] = groups[dir] || []).push(f)
+  }
+  const q = $('search').value.toLowerCase()
+  const wrap = $('files')
+  wrap.innerHTML = ''
+  for (const [dir, fs_] of Object.entries(groups)) {
+    const hit = fs_.filter(f => !q || f.toLowerCase().includes(q))
+    if (!hit.length) continue
+    wrap.insertAdjacentHTML('beforeend', `<div class="fgroup">${dir}</div>`)
+    for (const f of hit) {
+      const name = f.split('/').pop().replace('.md', '')
+      wrap.insertAdjacentHTML('beforeend', `<div class="fitem ${f === curPath ? 'on' : ''}" data-p="${f}">${name}</div>`)
+    }
+  }
+  wrap.querySelectorAll('.fitem').forEach(el => el.onclick = () => openFile(el.dataset.p))
+}
+
+async function openFile(p) {
+  const { content } = await (await fetch(API + '/api/file?path=' + encodeURIComponent(p))).json()
+  curPath = p
+  parse(content)
+  $('title').value = title
+  $('title').disabled = false
+  $('file-now').textContent = 'docs/' + p
+  updatePreview()
+  render()
+  loadFiles()
+}
+
+// ---------- 保存 / 发布 ----------
+async function save(silent = false) {
+  if (!curPath) return
+  title = $('title').value
+  const r = await (await fetch(API + '/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: curPath, content: serialize() }) })).json()
+  if (r.ok) { if (!silent) toast('💾 已保存，站点预览会自动刷新'); dirty = false }
+  else toast('保存失败：' + r.error, true)
+}
+
+async function publish() {
+  await save(true)
+  $('btn-pub').disabled = true
+  $('pub-msg').textContent = '发布中…'
+  const r = await (await fetch(API + '/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'docs: 更新 ' + (curPath || 'notes') }) })).json()
+  $('btn-pub').disabled = false
+  $('pub-msg').textContent = r.ok ? '✅ 已发布，1 分钟后线上生效' : '❌ 失败'
+  toast(r.ok ? '🚀 已推送到 GitHub，稍等片刻线上更新' : '发布失败：' + r.out, !r.ok)
+  if (!r.ok) console.error(r.out)
+}
+
+// ---------- 预览 ----------
+function updatePreview() {
+  if (!curPath) return
+  let url
+  if (curPath === 'index.md') url = SITE + '/'
+  else url = SITE + '/' + curPath.replace(/\.md$/, '').replace(/\/index$/, '')
+  $('pv').src = url
+  $('pv-open').href = url
+}
+$('btn-pv').onclick = () => {
+  const col = $('preview-col')
+  col.classList.toggle('show')
+  $('edit-col').classList.toggle('narrow')
+}
+
+// ---------- 新建 ----------
+$('btn-new').onclick = () => $('dlg-new').showModal()
+$('dlg-cancel').onclick = () => $('dlg-new').close()
+$('dlg-ok').onclick = async () => {
+  const dir = $('new-dir').value, name = $('new-name').value.trim(), t = $('new-title').value.trim()
+  if (!name) return toast('请填写文件名', true)
+  const path = dir + name.replace(/\.md$/, '') + '.md'
+  const r = await (await fetch(API + '/api/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, title: t || name }) })).json()
+  if (r.ok) { $('dlg-new').close(); await loadFiles(); openFile(path); toast('📄 已创建，记得稍后在 config.mts 侧边栏注册') }
+  else toast(r.error, true)
+}
+
+// ---------- toast / 快捷键 ----------
+let toastTimer
+function toast(msg, isErr = false) {
+  const t = $('toast')
+  t.textContent = msg
+  t.className = 'show' + (isErr ? ' err' : '')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => (t.className = ''), 2600)
+}
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save() }
+})
+$('title').oninput = () => (dirty = true)
+$('search').oninput = loadFiles
+
+loadFiles()
+</script>
+</body>
+</html>
