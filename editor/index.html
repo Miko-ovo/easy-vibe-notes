@@ -64,6 +64,25 @@
   /* 块 */
   .blk { position: relative; margin: 2px 0; border-radius: 4px; }
   .blk:hover { background: #fafbfc; }
+  .blk.dragging { opacity: .45; outline: 2px dashed #3370ff; border-radius: 6px; background: #f0f5ff; }
+  body.dragging-block { user-select: none; cursor: grabbing; }
+
+  /* 块之间的插入线（飞书式） */
+  .gap { height: 10px; position: relative; cursor: pointer; }
+  .gap::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 2px;
+    background: #3370ff; border-radius: 2px; opacity: 0; transition: opacity .1s;
+  }
+  .gap .gap-add {
+    position: absolute; left: 50%; top: 5px; transform: translate(-50%, -50%);
+    width: 22px; height: 14px; border: none; background: #3370ff; color: #fff;
+    border-radius: 8px; font-size: 11px; line-height: 1; cursor: pointer; display: none;
+    align-items: center; justify-content: center; padding: 0; box-shadow: 0 1px 4px rgba(51,112,255,.4);
+  }
+  .gap:hover::before, .gap.drag-over::before { opacity: 1; }
+  .gap:hover .gap-add, .gap.drag-over .gap-add { display: flex; }
+  .gap.drag-over::before { height: 3px; top: 3.5px; }
+  .gap.drag-over .gap-add { display: none; }
   .blk-wrap { padding: 2px 6px; }
   .gutter {
     position: absolute; left: -46px; top: 2px; display: flex; gap: 2px; opacity: 0;
@@ -172,9 +191,20 @@
   }
 
   /* 右侧实时预览 */
+  #splitter {
+    width: 7px; flex-shrink: 0; cursor: col-resize; background: transparent;
+    border-left: 1px solid #e8e9eb; transition: background .15s; position: relative;
+  }
+  #splitter:hover, #splitter.active { background: #3370ff33; }
+  #splitter::after {
+    content: '⋯'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #b4b9c0; font-size: 12px; pointer-events: none; letter-spacing: -2px;
+  }
+  #splitter.hide { display: none; }
+  body.resizing { cursor: col-resize; user-select: none; }
   #preview-col {
-    width: 42%; flex-shrink: 0; border-left: 1px solid #e8e9eb; background: #fff;
-    display: flex; flex-direction: column; overflow: hidden;
+    width: 42%; flex-shrink: 0; border-left: none; background: #fff;
+    display: flex; flex-direction: column; overflow: hidden; min-width: 260px;
   }
   #preview-col.hide { display: none; }
   .pv-bar {
@@ -281,6 +311,8 @@
       </div>
     </div>
   </div>
+
+  <div id="splitter"></div>
 
   <div id="preview-col">
     <div class="pv-bar">
@@ -492,6 +524,9 @@ function renderBlocks() {
   wrap.innerHTML = ''
 
   blocks.forEach((b, idx) => {
+    // 块之间的悬停插入线
+    wrap.appendChild(makeGap(idx))
+
     const el = document.createElement('div')
     el.className = 'blk'
     el.dataset.id = b.id
@@ -500,9 +535,8 @@ function renderBlocks() {
     const g = document.createElement('div')
     g.className = 'gutter'
     g.innerHTML = `
+      <button class="gb drag-handle" data-a="drag" title="按住拖动排序" style="cursor:grab">⋮⋮</button>
       <button class="gb" data-a="add" title="在下方插入">＋</button>
-      <button class="gb" data-a="up" title="上移">↑</button>
-      <button class="gb" data-a="down" title="下移">↓</button>
       <button class="gb danger" data-a="del" title="删除">✕</button>`
     el.appendChild(g)
 
@@ -678,19 +712,85 @@ function renderBlocks() {
       if (!a) return
       const i = blocks.findIndex(x => x.id === b.id)
       if (a === 'del') { blocks.splice(i, 1); dirty = true; renderBlocks(); schedulePreview() }
-      if (a === 'up' && i > 0) { [blocks[i-1], blocks[i]] = [blocks[i], blocks[i-1]]; dirty = true; renderBlocks(); schedulePreview() }
-      if (a === 'down' && i < blocks.length - 1) { [blocks[i+1], blocks[i]] = [blocks[i], blocks[i+1]]; dirty = true; renderBlocks(); schedulePreview() }
       if (a === 'add') { insertBlock(i + 1); }
+      if (a === 'drag') return // mousedown 已处理
     })
+    // 按住手柄拖动排序（飞书式）
+    const handle = g.querySelector('.drag-handle')
+    handle.addEventListener('mousedown', e => startDrag(e, b.id))
     wrap.appendChild(el)
   })
+
+  // 末尾插入线
+  wrap.appendChild(makeGap(blocks.length))
 
   if (!blocks.length) {
     const hint = document.createElement('div')
     hint.style.cssText = 'color:#b4b9c0;font-size:14px;padding:16px 6px'
-    hint.textContent = '点击下方「＋ 添加块」开始写，或在正文里输入 / 快速插入'
+    hint.textContent = '点击「＋ 添加块」开始写，或在正文里输入 / 快速插入'
     wrap.appendChild(hint)
   }
+}
+
+// ---------- 块间插入线 ----------
+function makeGap(i) {
+  const g = document.createElement('div')
+  g.className = 'gap'
+  g.dataset.idx = i
+  g.innerHTML = '<button class="gap-add" title="在此插入">＋</button>'
+  g.onclick = e => {
+    e.stopPropagation()
+    showMenu(g, null, i)
+  }
+  return g
+}
+
+// ---------- 拖拽排序 ----------
+function startDrag(e, blockId) {
+  e.preventDefault()
+  const srcEl = document.querySelector(`.blk[data-id="${blockId}"]`)
+  if (!srcEl) return
+  document.body.classList.add('dragging-block')
+  srcEl.classList.add('dragging')
+  let dropIdx = null
+
+  const onMove = ev => {
+    const gaps = [...document.querySelectorAll('#blocks .gap')]
+    let best = null, bestDist = Infinity
+    for (const gap of gaps) {
+      const r = gap.getBoundingClientRect()
+      if (r.height <= 0) continue
+      const mid = r.top + r.height / 2
+      const d = Math.abs(ev.clientY - mid)
+      if (d < bestDist) { bestDist = d; best = gap }
+    }
+    gaps.forEach(x => x.classList.remove('drag-over'))
+    if (best && bestDist < 60) {
+      best.classList.add('drag-over')
+      dropIdx = parseInt(best.dataset.idx, 10)
+    } else dropIdx = null
+  }
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+    document.body.classList.remove('dragging-block')
+    document.querySelectorAll('.gap.drag-over').forEach(x => x.classList.remove('drag-over'))
+    srcEl.classList.remove('dragging')
+    if (dropIdx == null) return
+    const from = blocks.findIndex(x => x.id === blockId)
+    let to = dropIdx
+    if (to > from) to--
+    if (to !== from && to >= 0 && to <= blocks.length) {
+      const [b] = blocks.splice(from, 1)
+      blocks.splice(to, 0, b)
+      dirty = true
+      renderBlocks()
+      schedulePreview()
+    }
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
 }
 
 function syncTableFromDom(b, tbl) {
@@ -774,10 +874,12 @@ function seedMeta(t) {
 }
 
 // ================= 插入菜单 =================
-let menuTarget = null // {blockId, index}
-function showMenu(anchor, target) {
+let menuTarget = null // {blockId}
+let menuInsertAt = null
+function showMenu(anchor, target = null, insertAt = null) {
   const m = $('menu')
   menuTarget = target || null
+  menuInsertAt = insertAt
   m.innerHTML = TYPES.map(x => `<button class="mi" data-t="${x.t}"><span class="ico">${x.ico}</span><span>${x.lb}</span><span style="margin-left:auto;font-size:11px;color:#b4b9c0">${x.desc}</span></button>`).join('')
   m.style.display = 'block'
   const r = anchor.getBoundingClientRect()
@@ -791,9 +893,10 @@ function showMenu(anchor, target) {
       blocks.splice(i, 1, blk(t, seedLines(t), seedMeta(t)))
       dirty = true; renderBlocks(); schedulePreview()
     } else {
-      insertBlock(blocks.length, t)
+      insertBlock(menuInsertAt == null ? blocks.length : menuInsertAt, t)
     }
     menuTarget = null
+    menuInsertAt = null
   })
 }
 document.addEventListener('click', e => {
@@ -940,7 +1043,32 @@ async function publish() {
 // ================= 顶栏 / 快捷键 =================
 $('btn-save').onclick = () => save()
 $('btn-pub').onclick = publish
-$('btn-pv').onclick = () => $('preview-col').classList.toggle('hide')
+$('btn-pv').onclick = () => {
+  const hide = $('preview-col').classList.toggle('hide')
+  $('splitter').classList.toggle('hide', hide)
+}
+
+// 分割条拖动调宽（记忆宽度）
+;(() => {
+  const pv = $('preview-col'), sp = $('splitter')
+  const saved = localStorage.getItem('pv-width')
+  if (saved) { pv.style.width = saved; pv.style.flex = 'none' }
+  let resizing = false
+  sp.addEventListener('mousedown', e => { resizing = true; sp.classList.add('active'); document.body.classList.add('resizing'); e.preventDefault() })
+  document.addEventListener('mousemove', e => {
+    if (!resizing) return
+    const w = Math.min(Math.max(innerWidth - e.clientX, 280), innerWidth - 480)
+    pv.style.width = w + 'px'
+    pv.style.flex = 'none'
+  })
+  document.addEventListener('mouseup', () => {
+    if (!resizing) return
+    resizing = false
+    sp.classList.remove('active')
+    document.body.classList.remove('resizing')
+    localStorage.setItem('pv-width', pv.style.width)
+  })
+})()
 $('title').oninput = () => { title = $('title').value; dirty = true; schedulePreview() }
 $('fmbar').onclick = () => $('fmarea').classList.toggle('show')
 $('fmta').oninput = () => { frontmatter = $('fmta').value; dirty = true; schedulePreview() }
