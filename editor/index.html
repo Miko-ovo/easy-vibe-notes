@@ -3,183 +3,293 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>✍️ 笔记编辑器（仅本地）</title>
+<title>✍️ 笔记编辑器</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f7f8fa; color: #1f2329; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-  header {
-    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-    background: #fff; border-bottom: 1px solid #e5e6eb; flex-shrink: 0;
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f6f7; color: #1f2329; display: flex; flex-direction: column; overflow: hidden;
+    font-size: 15px; -webkit-font-smoothing: antialiased;
   }
-  header .logo { font-weight: 700; font-size: 15px; }
-  header .badge { font-size: 10px; background: #fef3e2; color: #d97706; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-  header .file-now { flex: 1; text-align: center; font-size: 13px; color: #646a73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 顶栏 */
+  header {
+    height: 52px; flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    padding: 0 14px; background: #fff; border-bottom: 1px solid #e8e9eb;
+  }
+  .logo { font-weight: 700; font-size: 14px; }
+  .crumb { flex: 1; text-align: center; font-size: 12px; color: #8f959e; }
   .btn {
-    border: 1px solid #e5e6eb; background: #fff; border-radius: 8px;
-    padding: 6px 14px; font-size: 13px; cursor: pointer; color: #1f2329; white-space: nowrap;
+    border: 1px solid #e8e9eb; background: #fff; color: #1f2329; border-radius: 7px;
+    padding: 5px 12px; font-size: 13px; cursor: pointer; white-space: nowrap;
   }
   .btn:hover { background: #f2f3f5; }
-  .btn.primary { background: #10a37f; border-color: #10a37f; color: #fff; font-weight: 600; }
-  .btn.primary:hover { background: #0c8465; }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-  #pub-msg { font-size: 12px; color: #646a73; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn.primary { background: #3370ff; border-color: #3370ff; color: #fff; font-weight: 500; }
+  .btn.primary:hover { background: #2861e8; }
+  .btn.ghost { border-color: transparent; background: transparent; color: #646a73; }
+  .btn.ghost:hover { background: #f2f3f5; }
+  .status { font-size: 12px; color: #8f959e; min-width: 60px; text-align: right; }
 
   .layout { flex: 1; display: flex; overflow: hidden; }
 
+  /* 左侧文件树 */
   aside {
-    width: 240px; background: #fff; border-right: 1px solid #e5e6eb;
-    display: flex; flex-direction: column; flex-shrink: 0;
+    width: 236px; flex-shrink: 0; background: #fff; border-right: 1px solid #e8e9eb;
+    display: flex; flex-direction: column;
   }
-  aside .side-head { padding: 12px 14px 6px; display: flex; gap: 8px; }
-  aside input.search {
-    flex: 1; border: 1px solid #e5e6eb; border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  .side-head { padding: 10px 10px 6px; }
+  .side-head input {
+    width: 100%; border: none; background: #f2f3f5; border-radius: 7px;
+    padding: 6px 10px; font-size: 13px; outline: none;
   }
-  aside .files { flex: 1; overflow-y: auto; padding: 6px 8px 16px; }
-  .fgroup { font-size: 11px; color: #8f959e; padding: 10px 8px 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .files { flex: 1; overflow-y: auto; padding: 4px 6px 20px; }
+  .fgroup { font-size: 11px; color: #8f959e; padding: 12px 8px 4px; font-weight: 600; }
   .fitem {
-    padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer;
-    color: #1f2329; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #1f2329;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5;
   }
   .fitem:hover { background: #f2f3f5; }
-  .fitem.on { background: rgba(16,163,127,.12); color: #0c8465; font-weight: 600; }
+  .fitem.on { background: #e8efff; color: #3370ff; font-weight: 500; }
 
-  main { flex: 1; display: flex; overflow: hidden; }
-  #edit-col { flex: 1.2; overflow-y: auto; padding: 28px 8% 40vh; }
-  #edit-col.narrow { flex: 1; }
+  /* 中间编辑区 */
+  #edit-col { flex: 1; overflow-y: auto; background: #fff; }
+  #edit-inner { max-width: 760px; margin: 0 auto; padding: 40px 56px 45vh; }
   #title {
-    width: 100%; border: none; outline: none; background: transparent;
-    font-size: 28px; font-weight: 700; padding: 6px 0 14px; color: #1f2329;
-    font-family: inherit;
+    width: 100%; border: none; outline: none; font-size: 32px; font-weight: 700;
+    padding: 4px 0 18px; font-family: inherit; color: #1f2329; background: transparent;
   }
+  #title::placeholder { color: #c9cdd4; }
 
   /* 块 */
-  .blk {
-    position: relative; border-radius: 10px; margin: 4px 0; padding: 8px 10px 8px 12px;
-    border: 1px solid transparent; transition: background .12s;
+  .blk { position: relative; margin: 2px 0; border-radius: 4px; }
+  .blk:hover { background: #fafbfc; }
+  .blk-wrap { padding: 2px 6px; }
+  .gutter {
+    position: absolute; left: -46px; top: 2px; display: flex; gap: 2px; opacity: 0;
+    transition: opacity .12s;
   }
-  .blk:hover { background: #fff; border-color: #e5e6eb; }
-  .blk:focus-within { background: #fff; border-color: #10a37f; box-shadow: 0 0 0 2px rgba(16,163,127,.12); }
-  .blk .tools {
-    position: absolute; right: 8px; top: 6px; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; z-index: 2;
+  .blk:hover .gutter, .blk:focus-within .gutter { opacity: 1; }
+  .gb {
+    width: 20px; height: 22px; border: none; background: transparent; color: #8f959e;
+    cursor: pointer; border-radius: 4px; font-size: 13px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
   }
-  .blk:hover .tools, .blk:focus-within .tools { opacity: 1; }
-  .tools button {
-    border: none; background: #f2f3f5; width: 24px; height: 24px; border-radius: 6px;
-    cursor: pointer; font-size: 12px; color: #4e5461;
-  }
-  .tools button:hover { background: #e5e6eb; }
-  .tools .del:hover { background: #fde8e8; color: #d92d20; }
-  .tag {
-    display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 5px;
-    margin-bottom: 4px; letter-spacing: .03em;
-  }
-  .t-h2 { background: #e8f3ff; color: #2563eb; } .t-h3 { background: #e8f3ff; color: #3b82f6; }
-  .t-code { background: #1f2329; color: #a5d6ff; } .t-text { background: #f2f3f5; color: #646a73; }
-  .t-tip { background: rgba(16,163,127,.14); color: #0c8465; }
-  .t-warning { background: #fef3e2; color: #d97706; } .t-danger { background: #fde8e8; color: #d92d20; }
-  .t-info { background: #e8f3ff; color: #2563eb; }
-  .t-ul { background: #f4e8ff; color: #7c3aed; } .t-task { background: #f4e8ff; color: #7c3aed; }
-  .t-quote { background: #f2f3f5; color: #646a73; } .t-table { background: #fff4e5; color: #b45309; }
-  .t-image { background: #ffe8f0; color: #db2777; } .t-demo { background: rgba(16,163,127,.14); color: #0c8465; }
-  .t-divider { background: #f2f3f5; color: #646a73; }
+  .gb:hover { background: #e8e9eb; color: #1f2329; }
+  .gb.danger:hover { background: #fde8e8; color: #d92d20; }
 
-  .blk textarea, .blk input {
-    width: 100%; border: none; outline: none; background: transparent;
-    font-family: inherit; font-size: 14px; line-height: 1.7; color: #1f2329; resize: none;
-  }
-  .blk textarea { display: block; }
-  .blk textarea.code {
-    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px;
-    background: #0f172a; color: #d1fae5; border-radius: 8px; padding: 10px 12px;
-  }
-  .blk .mrow { display: flex; gap: 8px; margin-top: 6px; }
-  .blk .mrow input {
-    border: 1px solid #e5e6eb; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: #fafafa;
-  }
-  .blk .divider-line { height: 2px; background: #e5e6eb; border-radius: 2px; margin: 8px 0; }
-  .task-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-  .task-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #10a37f; cursor: pointer; flex-shrink: 0; }
-  .task-row input:not([type="checkbox"]) { border: none; background: transparent; font-size: 14px; flex: 1; padding: 2px 0; }
+  .ce { outline: none; line-height: 1.85; min-height: 1.85em; word-break: break-word; }
+  .ce:empty:before { content: attr(data-ph); color: #c9cdd4; pointer-events: none; }
+  .h2 { font-size: 24px; font-weight: 700; line-height: 1.5; margin-top: 12px; }
+  .h3 { font-size: 18px; font-weight: 700; line-height: 1.6; margin-top: 8px; }
+  .p { font-size: 15px; }
+  .quote { border-left: 3px solid #d0d3d6; padding-left: 12px; color: #646a73; }
 
-  .add-bar { margin: 14px 0; }
-  .add-btn {
-    width: 100%; border: 1px dashed #c9cdd4; background: transparent; border-radius: 10px;
-    padding: 10px; font-size: 13px; color: #8f959e; cursor: pointer;
+  /* 代码块 */
+  .codebox { background: #0f172a; border-radius: 8px; overflow: hidden; margin: 6px 0; }
+  .codebar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 10px; background: #1b2537; color: #7f8ea3; font-size: 11px;
   }
-  .add-btn:hover { border-color: #10a37f; color: #10a37f; background: rgba(16,163,127,.05); }
+  .codebar select {
+    background: transparent; border: none; color: #9fb3c8; font-size: 11px; outline: none; cursor: pointer;
+  }
+  .codebox pre {
+    margin: 0; padding: 12px 14px; color: #d1fae5; font-size: 13px; line-height: 1.7;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none; white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* 提示容器 */
+  .callout { border-radius: 8px; padding: 12px 14px; margin: 6px 0; border-left: 3px solid; }
+  .callout.tip { background: #eefaf6; border-color: #10a37f; }
+  .callout.warning { background: #fff8e6; border-color: #f5a623; }
+  .callout.danger { background: #fff0f0; border-color: #f04438; }
+  .callout.info { background: #eef4ff; border-color: #3370ff; }
+  .ctitle {
+    width: 100%; border: none; background: transparent; outline: none;
+    font-weight: 600; font-size: 14px; margin-bottom: 4px; font-family: inherit; color: #1f2329;
+  }
+  .ctitle::placeholder { color: #b4b9c0; font-weight: 500; }
+
+  /* 列表 / 待办 / 表格 */
+  .row { display: flex; align-items: flex-start; gap: 8px; padding: 1px 0; }
+  .row .bullet { color: #8f959e; width: 14px; flex-shrink: 0; text-align: center; line-height: 1.85; }
+  .row input[type="checkbox"] {
+    width: 15px; height: 15px; margin-top: 6px; accent-color: #3370ff; cursor: pointer; flex-shrink: 0;
+  }
+  .row .rce { flex: 1; }
+  .row.done .rce { color: #b4b9c0; text-decoration: line-through; }
+  table.tbl { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+  table.tbl td { border: 1px solid #e1e3e6; padding: 6px 10px; outline: none; min-width: 60px; }
+  table.tbl tr:first-child td { background: #f7f8fa; font-weight: 600; }
+  .tbl-tools { display: flex; gap: 6px; margin-top: 4px; opacity: 0; }
+  .blk:hover .tbl-tools { opacity: 1; }
+  .tbl-tools button { font-size: 11px; color: #8f959e; background: transparent; border: none; cursor: pointer; }
+  .tbl-tools button:hover { color: #3370ff; }
+
+  /* 图片 / 演示 / 标签 / 分割线 */
+  .imgblk img { max-width: 100%; border-radius: 8px; display: block; }
+  .img-path { font-size: 11px; color: #8f959e; margin-top: 4px; }
+  .img-path input {
+    border: 1px dashed #e1e3e6; background: transparent; font-size: 11px; color: #646a73;
+    padding: 2px 6px; border-radius: 4px; width: 100%; outline: none;
+  }
+  .demoblk {
+    display: flex; align-items: center; gap: 10px; border: 1px solid #e1e3e6; border-radius: 8px;
+    padding: 10px 12px; background: #fafbfc;
+  }
+  .demoblk .di { font-size: 18px; }
+  .demoblk .dt { font-size: 13px; font-weight: 600; }
+  .demoblk .ds { font-size: 11px; color: #8f959e; }
+  .demoblk a { margin-left: auto; font-size: 12px; color: #3370ff; text-decoration: none; }
+  .tagrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 0; }
+  .chip {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(16,163,127,.1);
+    color: #0c8465; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip input {
+    border: none; background: transparent; outline: none; font-size: 12px; width: auto;
+    min-width: 40px; color: inherit; font-family: inherit;
+  }
+  .chip .cx { cursor: pointer; opacity: .5; font-size: 11px; }
+  .chip .cx:hover { opacity: 1; }
+  .chip.add { background: #f2f3f5; color: #8f959e; cursor: pointer; border: none; }
+  hr.div { border: none; border-top: 1px solid #e1e3e6; margin: 16px 0; }
+
+  /* 页面配置 */
+  .fmbar {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #8f959e;
+    cursor: pointer; background: #f2f3f5; border-radius: 6px; padding: 3px 9px; margin-bottom: 10px;
+  }
+  .fmbar:hover { background: #e8e9eb; }
+  .fmarea { display: none; margin-bottom: 12px; }
+  .fmarea.show { display: block; }
+  .fmarea textarea {
+    width: 100%; border: 1px solid #e8e9eb; border-radius: 8px; padding: 10px; font-size: 12px;
+    font-family: ui-monospace, Menlo, monospace; background: #fafbfc; outline: none; resize: vertical;
+    color: #646a73; line-height: 1.6;
+  }
+
+  /* 右侧实时预览 */
+  #preview-col {
+    width: 42%; flex-shrink: 0; border-left: 1px solid #e8e9eb; background: #fff;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #preview-col.hide { display: none; }
+  .pv-bar {
+    height: 38px; flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    padding: 0 14px; border-bottom: 1px solid #f0f1f2; font-size: 12px; color: #8f959e;
+  }
+  .pv-bar .live { color: #10a37f; font-weight: 600; }
+  .pv-bar a { margin-left: auto; color: #3370ff; text-decoration: none; }
+  #pv-scroll { flex: 1; overflow-y: auto; padding: 32px 40px 45vh; }
+  #pv-body { max-width: 700px; margin: 0 auto; font-size: 15px; line-height: 1.85; }
+  #pv-body h1 { font-size: 28px; margin: 0 0 18px; line-height: 1.4; }
+  #pv-body h2 { font-size: 22px; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #f0f1f2; }
+  #pv-body h3 { font-size: 17px; margin: 20px 0 8px; }
+  #pv-body p { margin: 10px 0; }
+  #pv-body ul { padding-left: 20px; margin: 10px 0; }
+  #pv-body li { margin: 4px 0; }
+  #pv-body code {
+    background: #f2f3f5; padding: 1px 5px; border-radius: 4px; font-size: 13px;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  #pv-body pre {
+    background: #0f172a; color: #d1fae5; padding: 14px; border-radius: 8px; overflow-x: auto;
+    font-size: 13px; line-height: 1.7; margin: 12px 0;
+  }
+  #pv-body pre code { background: none; color: inherit; padding: 0; }
+  #pv-body blockquote { border-left: 3px solid #d0d3d6; padding-left: 12px; color: #646a73; margin: 12px 0; }
+  #pv-body table { border-collapse: collapse; margin: 12px 0; width: 100%; font-size: 14px; }
+  #pv-body th, #pv-body td { border: 1px solid #e1e3e6; padding: 6px 10px; }
+  #pv-body th { background: #f7f8fa; }
+  #pv-body hr { border: none; border-top: 1px solid #e1e3e6; margin: 20px 0; }
+  #pv-body .demo-embed { border: 1px solid #e1e3e6; border-radius: 10px; overflow: hidden; margin: 14px 0; }
+  #pv-body .demo-embed iframe { width: 100%; border: none; display: block; }
+  .pv-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .pv-meta span {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    background: rgba(16,163,127,.1); color: #0c8465;
+  }
+  .pv-callout { border-radius: 8px; padding: 12px 14px; margin: 12px 0; border-left: 3px solid; }
+  .pv-callout.tip { background: #eefaf6; border-color: #10a37f; }
+  .pv-callout.warning { background: #fff8e6; border-color: #f5a623; }
+  .pv-callout.danger { background: #fff0f0; border-color: #f04438; }
+  .pv-callout.info { background: #eef4ff; border-color: #3370ff; }
+  .pv-callout .t { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
 
   /* 插入菜单 */
   #menu {
-    position: fixed; z-index: 50; background: #fff; border: 1px solid #e5e6eb; border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0,0,0,.14); padding: 8px; width: 460px; display: none;
-    grid-template-columns: repeat(5, 1fr); gap: 4px;
+    position: fixed; z-index: 60; display: none; background: #fff; border: 1px solid #e8e9eb;
+    border-radius: 10px; box-shadow: 0 10px 36px rgba(0,0,0,.16); padding: 6px; width: 250px;
+    max-height: 360px; overflow-y: auto;
   }
-  .mi { border: none; background: transparent; border-radius: 8px; padding: 8px 4px; cursor: pointer; text-align: center; }
-  .mi:hover { background: rgba(16,163,127,.08); }
-  .mi .ico { font-size: 18px; display: block; }
-  .mi .lb { font-size: 11px; color: #4e5461; display: block; margin-top: 3px; }
-
-  /* 预览 */
-  #preview-col {
-    flex: 1; border-left: 1px solid #e5e6eb; background: #f2f3f5;
-    display: none; flex-direction: column; overflow: hidden;
+  .mi {
+    display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: transparent;
+    padding: 7px 9px; border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; color: #1f2329;
   }
-  #preview-col.show { display: flex; }
-  .pv-bar { padding: 8px 12px; background: #fff; border-bottom: 1px solid #e5e6eb; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #646a73; }
-  .pv-bar a { color: #10a37f; text-decoration: none; }
-  #pv { flex: 1; border: none; width: 100%; }
+  .mi:hover, .mi.sel { background: #f2f3f5; }
+  .mi .ico {
+    width: 22px; height: 22px; border-radius: 5px; background: #f2f3f5; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;
+  }
 
   #toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-    background: #1f2329; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px;
-    transition: transform .25s; z-index: 99; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1f2329; color: #fff; padding: 9px 18px; border-radius: 9px; font-size: 13px;
+    transition: transform .25s; z-index: 99;
   }
   #toast.show { transform: translateX(-50%) translateY(0); }
   #toast.err { background: #d92d20; }
 
-  dialog { border: 1px solid #e5e6eb; border-radius: 14px; padding: 20px; width: 380px; }
-  dialog h3 { margin-bottom: 14px; }
+  dialog { border: 1px solid #e8e9eb; border-radius: 12px; padding: 20px; width: 380px; }
+  dialog h3 { margin-bottom: 12px; font-size: 16px; }
   dialog label { display: block; font-size: 12px; color: #646a73; margin: 10px 0 4px; }
-  dialog input, dialog select { width: 100%; border: 1px solid #e5e6eb; border-radius: 8px; padding: 7px 10px; font-size: 13px; }
-  dialog .dlg-btns { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  dialog input, dialog select {
+    width: 100%; border: 1px solid #e8e9eb; border-radius: 7px; padding: 7px 10px; font-size: 13px;
+    outline: none;
+  }
+  .dlg-btns { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 </style>
 </head>
 <body>
 <header>
   <span class="logo">✍️ 笔记编辑器</span>
-  <span class="badge">仅本地 · 观众不可见</span>
-  <span class="file-now" id="file-now">未打开文件</span>
-  <span id="pub-msg"></span>
-  <button class="btn" id="btn-new">＋ 新笔记</button>
-  <button class="btn" id="btn-save">💾 保存 ⌘S</button>
-  <button class="btn" id="btn-pv">👁 预览</button>
-  <button class="btn primary" id="btn-pub">🚀 发布到 GitHub</button>
+  <span class="crumb" id="crumb">未打开文件</span>
+  <span class="status" id="status"></span>
+  <button class="btn ghost" id="btn-new">＋ 新笔记</button>
+  <button class="btn" id="btn-save">保存</button>
+  <button class="btn ghost" id="btn-pv">预览</button>
+  <button class="btn primary" id="btn-pub">发布</button>
 </header>
 
 <div class="layout">
   <aside>
-    <div class="side-head">
-      <input class="search" id="search" placeholder="搜索文件…">
-    </div>
+    <div class="side-head"><input id="search" placeholder="搜索笔记…"></div>
     <div class="files" id="files"></div>
   </aside>
 
-  <main>
-    <div id="edit-col">
-      <input id="title" placeholder="未打开文件" disabled>
+  <div id="edit-col">
+    <div id="edit-inner">
+      <input id="title" placeholder="未命名笔记" disabled>
+      <div id="fmbar" class="fmbar" style="display:none">⚙️ 页面配置</div>
+      <div id="fmarea" class="fmarea"><textarea id="fmta" spellcheck="false"></textarea></div>
       <div id="blocks"></div>
-      <div class="add-bar"><button class="add-btn" id="add-btn">＋ 输入 / 或点击插入块（代码块、提示框、列表…）</button></div>
-    </div>
-
-    <div id="preview-col">
-      <div class="pv-bar">
-        <span>站点实时预览（VitePress 保存后自动热更新）</span>
-        <a id="pv-open" href="#" target="_blank">新窗口打开 ↗</a>
+      <div style="margin-top:10px">
+        <button class="gb" id="add-btn" style="width:auto;padding:0 8px;border:1px dashed #d9dce0;color:#8f959e;font-size:12px">＋ 添加块</button>
       </div>
-      <iframe id="pv"></iframe>
     </div>
-  </main>
+  </div>
+
+  <div id="preview-col">
+    <div class="pv-bar">
+      <span class="live">● 实时预览</span>
+      <span>边打字边渲染</span>
+      <a id="pv-open" href="#" target="_blank">打开真实站点 ↗</a>
+    </div>
+    <div id="pv-scroll"><div id="pv-body"></div></div>
+  </div>
 </div>
 
 <div id="menu"></div>
@@ -189,12 +299,12 @@
   <h3>新建笔记</h3>
   <label>位置</label>
   <select id="new-dir">
-    <option value="notes/stage1/">第一阶段 · 零基础入门</option>
-    <option value="notes/stage2/">第二阶段 · 全栈开发</option>
-    <option value="notes/stage3/">第三阶段 · 高级进阶</option>
-    <option value="notes/appendix/">附录</option>
-    <option value="projects/">项目展示</option>
-    <option value="guide/">使用指南</option>
+    <option value="notes/stage1/">🚀 第一阶段 · 零基础入门</option>
+    <option value="notes/stage2/">🛠️ 第二阶段 · 全栈开发</option>
+    <option value="notes/stage3/">⚡ 第三阶段 · 高级进阶</option>
+    <option value="notes/appendix/">📎 附录</option>
+    <option value="projects/">🏆 项目展示</option>
+    <option value="guide/">📘 使用指南</option>
   </select>
   <label>文件名（英文，如 06-my-note）</label>
   <input id="new-name" placeholder="06-my-note">
@@ -207,41 +317,36 @@
 </dialog>
 
 <script>
-const API = ''
-const SITE = 'http://localhost:5173'
-let curPath = null
-let frontmatter = ''
-let blocks = []
-let title = ''
-let dirty = false
-
 const $ = id => document.getElementById(id)
-const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-let uid = 0; const nid = () => 'b' + (++uid)
+const SITE = 'http://localhost:5173'
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
-// ---------- 块类型 ----------
+let curPath = null, blocks = [], title = '', frontmatter = '', dirty = false
+let uid = 0
+const nid = () => 'b' + (++uid)
+const blk = (t, lines = [], meta = {}) => ({ id: nid(), t, lines, meta })
+
+// ================= 块类型 =================
 const TYPES = [
-  { t:'h2',      lb:'标题',   ico:'🅷',   tag:'H2',      cls:'t-h2' },
-  { t:'h3',      lb:'小标题', ico:'🅷',   tag:'H3',      cls:'t-h3' },
-  { t:'text',    lb:'正文',   ico:'✏️',   tag:'正文',    cls:'t-text' },
-  { t:'code',    lb:'代码块', ico:'</>',  tag:'代码',    cls:'t-code' },
-  { t:'tip',     lb:'提示',   ico:'💡',   tag:'TIP',     cls:'t-tip' },
-  { t:'warning', lb:'警告',   ico:'⚠️',   tag:'警告',    cls:'t-warning' },
-  { t:'danger',  lb:'危险',   ico:'🚫',   tag:'危险',    cls:'t-danger' },
-  { t:'info',    lb:'信息',   ico:'ℹ️',   tag:'INFO',    cls:'t-info' },
-  { t:'ul',      lb:'列表',   ico:'•',    tag:'列表',    cls:'t-ul' },
-  { t:'task',    lb:'待办',   ico:'☑',    tag:'待办',    cls:'t-task' },
-  { t:'quote',   lb:'引用',   ico:'❝',    tag:'引用',    cls:'t-quote' },
-  { t:'table',   lb:'表格',   ico:'▦',    tag:'表格',    cls:'t-table' },
-  { t:'image',   lb:'图片',   ico:'🖼',   tag:'图片',    cls:'t-image' },
-  { t:'demo',    lb:'演示嵌入',ico:'▶',   tag:'DEMO',    cls:'t-demo' },
-  { t:'divider', lb:'分隔线', ico:'—',    tag:'---',     cls:'t-divider' },
+  { t:'text',    lb:'正文',    ico:'T',  desc:'普通段落' },
+  { t:'h2',      lb:'大标题',  ico:'H',  desc:'章节标题' },
+  { t:'h3',      lb:'小标题',  ico:'h',  desc:'小节标题' },
+  { t:'ul',      lb:'列表',    ico:'•',  desc:'无序列表' },
+  { t:'task',    lb:'待办',    ico:'☑',  desc:'可勾选清单' },
+  { t:'code',    lb:'代码块',  ico:'</>',desc:'代码 / 命令' },
+  { t:'tip',     lb:'提示',    ico:'💡', desc:'绿色提示框' },
+  { t:'warning', lb:'警告',    ico:'⚠️', desc:'黄色警告框' },
+  { t:'danger',  lb:'危险',    ico:'🚫', desc:'红色警示框' },
+  { t:'info',    lb:'信息',    ico:'ℹ️', desc:'蓝色信息框' },
+  { t:'quote',   lb:'引用',    ico:'❝',  desc:'引用段落' },
+  { t:'table',   lb:'表格',    ico:'▦',  desc:'简单表格' },
+  { t:'image',   lb:'图片',    ico:'🖼',  desc:'插入图片' },
+  { t:'demo',    lb:'演示嵌入',ico:'▶',  desc:'嵌入小项目' },
+  { t:'divider', lb:'分割线',  ico:'—',  desc:'分隔内容' },
 ]
 const TMAP = Object.fromEntries(TYPES.map(x => [x.t, x]))
 
-function blk(t, lines = [], meta = {}) { return { id: nid(), t, lines, meta } }
-
-// ---------- Markdown -> 块 ----------
+// ================= Markdown -> 块 =================
 function isBlockStart(raw) {
   const l = raw.trim()
   if (!l) return true
@@ -253,14 +358,10 @@ function parse(content) {
   const lines = content.split('\n')
   let i = 0
 
-  // YAML frontmatter：原样保留
   if (lines[0] !== undefined && lines[0].trim() === '---') {
     let j = 1
     while (j < lines.length && lines[j].trim() !== '---') j++
-    if (j < lines.length) {
-      frontmatter = lines.slice(1, j).join('\n')
-      i = j + 1
-    }
+    if (j < lines.length) { frontmatter = lines.slice(1, j).join('\n'); i = j + 1 }
   }
   while (i < lines.length && lines[i].trim() === '') i++
   if (lines[i] && /^# /.test(lines[i])) { title = lines[i].slice(2); i++ }
@@ -277,13 +378,23 @@ function parse(content) {
       blocks.push(blk('code', buf, { lang }))
     } else if (/^:::\s/.test(l.trim())) {
       const parts = l.trim().slice(3).trim().split(/\s+/)
-      const kind = ['tip', 'warning', 'danger', 'info'].includes(parts[0]) ? parts[0] : 'tip'
+      const kind = ['tip','warning','danger','info'].includes(parts[0]) ? parts[0] : 'tip'
       const ctitle = parts[0] === kind ? parts.slice(1).join(' ') : parts.join(' ')
       const buf = []; i++
       while (i < lines.length && !/^:::/.test(lines[i].trim())) buf.push(lines[i++])
       const closed = i < lines.length
       if (closed) i++
       blocks.push(blk(kind, buf, { title: ctitle, closed }))
+    } else if (/^<div class="note-meta">/.test(l.trim())) {
+      const chips = []
+      i++
+      while (i < lines.length && !/^<\/div>/.test(lines[i].trim())) {
+        const m = lines[i].match(/<span>([\s\S]*?)<\/span>/)
+        if (m) chips.push(m[1].trim())
+        i++
+      }
+      if (i < lines.length) i++
+      blocks.push(blk('meta', [], { chips }))
     } else if (/^<DemoEmbed/.test(l.trim())) {
       const src = (l.match(/src="([^"]*)"/) || [])[1] || ''
       const dt = (l.match(/title="([^"]*)"/) || [])[1] || '交互式演示'
@@ -304,7 +415,8 @@ function parse(content) {
       blocks.push(blk('task', buf, { checked: chk }))
     } else if (/^[-*]\s/.test(l.trim())) {
       const buf = []
-      while (i < lines.length && /^[-*]\s/.test(lines[i].trim()) && !/^[-*]\s\[.\]/.test(lines[i].trim())) buf.push(lines[i++].trim().replace(/^[-*]\s/, ''))
+      while (i < lines.length && /^[-*]\s/.test(lines[i].trim()) && !/^[-*]\s\[.\]/.test(lines[i].trim()))
+        buf.push(lines[i++].trim().replace(/^[-*]\s/, ''))
       blocks.push(blk('ul', buf))
     } else if (/^>\s?/.test(l.trim())) {
       const buf = []
@@ -317,27 +429,24 @@ function parse(content) {
     } else if (/^---\s*$/.test(l.trim())) {
       blocks.push(blk('divider')); i++
     } else if (/^</.test(l.trim())) {
-      // 原生 HTML 块（如 note-meta）：一直收到闭合标签
       const buf = []
       while (i < lines.length && lines[i].trim() !== '') {
         const cur = lines[i++]
         buf.push(cur)
         if (/^<\/(div|p|table)>$/i.test(cur.trim()) || /\/>$/.test(cur.trim())) break
       }
-      blocks.push(blk('text', buf.length ? buf : ['']))
+      blocks.push(blk('html', buf.length ? buf : ['']))
     } else {
-      // 普通段落：收到空行或下一个块开始
       const buf = []
       while (i < lines.length && !isBlockStart(lines[i])) buf.push(lines[i++])
-      if (!buf.length) buf.push(lines[i++]) // 兜底：保证一定前进
+      if (!buf.length) buf.push(lines[i++])
       blocks.push(blk('text', buf))
     }
-
-    if (i === before) i++ // 终极保险：绝不空转
+    if (i === before) i++
   }
 }
 
-// ---------- 块 -> Markdown ----------
+// ================= 块 -> Markdown =================
 function serialize() {
   const out = []
   if (frontmatter) out.push('---', frontmatter, '---', '')
@@ -348,9 +457,11 @@ function serialize() {
       case 'h2': out.push(`## ${L[0] || ''}`); break
       case 'h3': out.push(`### ${L[0] || ''}`); break
       case 'text': out.push(L.join('\n')); break
+      case 'html': out.push(L.join('\n')); break
       case 'code': out.push('```' + (b.meta.lang || '') + '\n' + L.join('\n') + '\n```'); break
       case 'tip': case 'warning': case 'danger': case 'info':
-        out.push(`::: ${b.t}${b.meta.title ? ' ' + b.meta.title : ''}\n${L.join('\n')}` + (b.meta.closed === false ? '' : '\n:::')); break
+        out.push(`::: ${b.t}${b.meta.title ? ' ' + b.meta.title : ''}\n${L.join('\n')}` + (b.meta.closed === false ? '' : '\n:::'))
+        break
       case 'ul': out.push(L.map(x => `- ${x}`).join('\n')); break
       case 'task': out.push(L.map((x, i) => `- [${(b.meta.checked || [])[i] ? 'x' : ' '}] ${x}`).join('\n')); break
       case 'quote': out.push(L.map(x => `> ${x}`).join('\n')); break
@@ -358,152 +469,385 @@ function serialize() {
       case 'image': out.push(`![${b.meta.alt || ''}](${b.meta.src || ''})`); break
       case 'demo': out.push(`<DemoEmbed src="${b.meta.src}" title="${b.meta.title}" height="${b.meta.height}" />`); break
       case 'divider': out.push('---'); break
+      case 'meta': out.push('<div class="note-meta">\n' + (b.meta.chips || []).map(c => `  <span>${c}</span>`).join('\n') + '\n</div>'); break
     }
     out.push('')
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n'
 }
 
-// ---------- 渲染 ----------
-function render() {
+// ================= 编辑区渲染（所见即所得） =================
+function ceEl(cls, text, ph, oninput) {
+  const el = document.createElement('div')
+  el.className = 'ce ' + cls
+  el.contentEditable = 'true'
+  el.dataset.ph = ph || ''
+  el.textContent = text || ''
+  el.oninput = () => oninput(el.innerText)
+  return el
+}
+
+function renderBlocks() {
   const wrap = $('blocks')
   wrap.innerHTML = ''
 
-  // frontmatter 专用块（如首页 home 布局）
-  if (frontmatter) {
-    const fm = document.createElement('div')
-    fm.className = 'blk'
-    fm.innerHTML = '<span class="tag t-text">FM 页面配置</span>'
-    const ta = document.createElement('textarea')
-    ta.className = 'code'
-    ta.spellcheck = false
-    ta.value = frontmatter
-    ta.rows = Math.min(14, frontmatter.split('\n').length + 1)
-    ta.oninput = () => { frontmatter = ta.value; dirty = true }
-    fm.appendChild(ta)
-    wrap.appendChild(fm)
-  }
-
   blocks.forEach((b, idx) => {
-    const def = TMAP[b.t]
     const el = document.createElement('div')
     el.className = 'blk'
     el.dataset.id = b.id
-    el.innerHTML = `<div class="tools">
-        <button data-a="up" title="上移">↑</button>
-        <button data-a="down" title="下移">↓</button>
-        <button data-a="del" class="del" title="删除">✕</button>
-      </div>
-      <span class="tag ${def.cls}">${def.tag}</span>`
+
+    // 左侧操作区（悬停显示，像飞书）
+    const g = document.createElement('div')
+    g.className = 'gutter'
+    g.innerHTML = `
+      <button class="gb" data-a="add" title="在下方插入">＋</button>
+      <button class="gb" data-a="up" title="上移">↑</button>
+      <button class="gb" data-a="down" title="下移">↓</button>
+      <button class="gb danger" data-a="del" title="删除">✕</button>`
+    el.appendChild(g)
 
     const body = document.createElement('div')
-    if (b.t === 'task') {
+    body.className = 'blk-wrap'
+
+    if (b.t === 'text' || b.t === 'h2' || b.t === 'h3' || b.t === 'quote') {
+      const ph = { text: '输入正文，或输入 / 插入其他类型…', h2: '标题', h3: '小标题', quote: '引用内容' }[b.t]
+      const ce = ceEl(b.t === 'text' ? 'p' : b.t, b.lines.join('\n'), ph, txt => {
+        b.lines = txt.split('\n'); dirty = true; schedulePreview()
+        // 输入 / 唤起插入菜单（飞书式）
+        if (txt === '/') showMenu(ce, { blockId: b.id })
+      })
+      ce.onkeydown = e => onBlockKey(e, b, ce)
+      body.appendChild(ce)
+
+    } else if (b.t === 'code') {
+      const box = document.createElement('div')
+      box.className = 'codebox'
+      const bar = document.createElement('div')
+      bar.className = 'codebar'
+      const langs = ['', 'js', 'ts', 'html', 'css', 'bash', 'python', 'json', 'markdown', 'vue', 'text']
+      bar.innerHTML = `<select>${langs.map(x => `<option ${x === (b.meta.lang || '') ? 'selected' : ''}>${x || '选择语言'}</option>`).join('')}</select><span>代码块</span>`
+      const pre = document.createElement('pre')
+      pre.contentEditable = 'true'
+      pre.spellcheck = false
+      pre.textContent = b.lines.join('\n')
+      pre.oninput = () => { b.lines = pre.innerText.split('\n'); dirty = true; schedulePreview() }
+      bar.querySelector('select').onchange = e => { b.meta.lang = e.target.value; dirty = true; schedulePreview() }
+      box.appendChild(bar); box.appendChild(pre)
+      body.appendChild(box)
+
+    } else if (['tip','warning','danger','info'].includes(b.t)) {
+      const c = document.createElement('div')
+      c.className = 'callout ' + b.t
+      const t = document.createElement('input')
+      t.className = 'ctitle'
+      t.placeholder = '标题（可留空）'
+      t.value = b.meta.title || ''
+      t.oninput = () => { b.meta.title = t.value; dirty = true; schedulePreview() }
+      const ce = ceEl('p', b.lines.join('\n'), '内容…', txt => { b.lines = txt.split('\n'); dirty = true; schedulePreview() })
+      ce.onkeydown = e => onBlockKey(e, b, ce)
+      c.appendChild(t); c.appendChild(ce)
+      body.appendChild(c)
+
+    } else if (b.t === 'meta') {
+      const row = document.createElement('div')
+      row.className = 'tagrow'
+      ;(b.meta.chips || []).forEach((chip, ci) => {
+        const span = document.createElement('span')
+        span.className = 'chip'
+        const inp = document.createElement('input')
+        inp.value = chip
+        inp.style.width = Math.max(40, chip.length * 13) + 'px'
+        inp.oninput = () => { b.meta.chips[ci] = inp.value; dirty = true; schedulePreview() }
+        const x = document.createElement('span')
+        x.className = 'cx'; x.textContent = '✕'
+        x.onclick = () => { b.meta.chips.splice(ci, 1); dirty = true; renderBlocks(); schedulePreview() }
+        span.appendChild(inp); span.appendChild(x)
+        row.appendChild(span)
+      })
+      const add = document.createElement('button')
+      add.className = 'chip add'; add.textContent = '＋ 标签'
+      add.onclick = () => { (b.meta.chips = b.meta.chips || []).push('新标签'); dirty = true; renderBlocks(); schedulePreview() }
+      row.appendChild(add)
+      body.appendChild(row)
+
+    } else if (b.t === 'ul' || b.t === 'task') {
       b.meta.checked = b.meta.checked || []
       b.lines.forEach((ln, li) => {
         const row = document.createElement('div')
-        row.className = 'task-row'
-        const cb = document.createElement('input')
-        cb.type = 'checkbox'; cb.checked = !!b.meta.checked[li]
-        cb.onchange = () => { b.meta.checked[li] = cb.checked; dirty = true }
-        const inp = document.createElement('input')
-        inp.value = ln; inp.placeholder = '待办事项…'
-        inp.oninput = () => { b.lines[li] = inp.value; dirty = true }
-        inp.onkeydown = e => {
-          if (e.key === 'Enter') { e.preventDefault(); b.lines.splice(li + 1, 0, ''); b.meta.checked.splice(li + 1, 0, false); dirty = true; render(); focusTask(b.id, li + 1) }
-          if (e.key === 'Backspace' && inp.value === '' && b.lines.length > 1) { e.preventDefault(); b.lines.splice(li, 1); b.meta.checked.splice(li, 1); dirty = true; render(); focusTask(b.id, Math.max(0, li - 1)) }
+        row.className = 'row' + (b.t === 'task' && b.meta.checked[li] ? ' done' : '')
+        if (b.t === 'task') {
+          const cb = document.createElement('input')
+          cb.type = 'checkbox'; cb.checked = !!b.meta.checked[li]
+          cb.onchange = () => { b.meta.checked[li] = cb.checked; row.classList.toggle('done', cb.checked); dirty = true; schedulePreview() }
+          row.appendChild(cb)
+        } else {
+          const dot = document.createElement('span')
+          dot.className = 'bullet'; dot.textContent = '•'
+          row.appendChild(dot)
         }
-        row.appendChild(cb); row.appendChild(inp)
+        const ce = ceEl('rce', ln, b.t === 'task' ? '待办事项…' : '列表项…', txt => {
+          b.lines[li] = txt.replace(/\n/g, ' '); dirty = true; schedulePreview()
+        })
+        ce.onkeydown = e => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            b.lines.splice(li + 1, 0, ''); b.meta.checked.splice(li + 1, 0, false)
+            dirty = true; renderBlocks(); setTimeout(() => focusRow(b.id, li + 1))
+          }
+          if (e.key === 'Backspace' && ce.innerText === '' && b.lines.length > 1) {
+            e.preventDefault()
+            b.lines.splice(li, 1); b.meta.checked.splice(li, 1)
+            dirty = true; renderBlocks(); setTimeout(() => focusRow(b.id, Math.max(0, li - 1)))
+          }
+        }
+        row.appendChild(ce)
         body.appendChild(row)
       })
-    } else if (['h2','h3','text','code','ul','quote','table'].includes(b.t)) {
+
+    } else if (b.t === 'table') {
+      const rows = b.lines.map(r => r.split('|').slice(1, -1).map(c => c.trim()))
+        .filter(r => !r.every(c => /^-+$/.test(c) || c === ''))
+      const tbl = document.createElement('table')
+      tbl.className = 'tbl'
+      rows.forEach((cells, ri) => {
+        const tr = document.createElement('tr')
+        cells.forEach((cell, ci) => {
+          const td = document.createElement('td')
+          td.contentEditable = 'true'
+          td.textContent = cell
+          td.oninput = () => { syncTableFromDom(b, tbl); dirty = true; schedulePreview() }
+          tr.appendChild(td)
+        })
+        tbl.appendChild(tr)
+      })
+      body.appendChild(tbl)
+      const tools = document.createElement('div')
+      tools.className = 'tbl-tools'
+      tools.innerHTML = `<button data-a="row">＋ 行</button><button data-a="col">＋ 列</button>`
+      tools.onclick = e => {
+        const a = e.target.dataset.a
+        if (a === 'row') { b.lines.push('| ' + ' | '.repeat((b.lines[0] || '||').split('|').length - 2) + ' |'); }
+        if (a === 'col') { b.lines = b.lines.map(l => l + '  |'); }
+        dirty = true; renderBlocks(); schedulePreview()
+      }
+      body.appendChild(tools)
+
+    } else if (b.t === 'image') {
+      const d = document.createElement('div')
+      d.className = 'imgblk'
+      const img = document.createElement('img')
+      img.src = b.meta.src || ''
+      img.alt = b.meta.alt || ''
+      img.onerror = () => { img.style.display = 'none' }
+      const path = document.createElement('div')
+      path.className = 'img-path'
+      const inp = document.createElement('input')
+      inp.value = b.meta.src || ''; inp.placeholder = '图片地址，如 /images/demo.png'
+      inp.oninput = () => { b.meta.src = inp.value; img.src = inp.value; img.style.display = 'block'; dirty = true; schedulePreview() }
+      path.appendChild(inp)
+      d.appendChild(img); d.appendChild(path)
+      body.appendChild(d)
+
+    } else if (b.t === 'demo') {
+      const d = document.createElement('div')
+      d.className = 'demoblk'
+      d.innerHTML = `<span class="di">▶</span><div><div class="dt">${esc(b.meta.title || '演示')}</div><div class="ds">${esc(b.meta.src || '')}</div></div>`
+      const a = document.createElement('a')
+      a.href = b.meta.src; a.target = '_blank'; a.textContent = '打开 ↗'
+      d.appendChild(a)
+      const edit = document.createElement('div')
+      edit.className = 'img-path'
+      edit.innerHTML = `<input data-m="src" value="${esc(b.meta.src || '')}" placeholder="项目地址 /projects/xx/index.html">`
+      edit.querySelector('input').oninput = e => { b.meta.src = e.target.value; d.querySelector('.ds').textContent = e.target.value; a.href = e.target.value; dirty = true; schedulePreview() }
+      body.appendChild(d); body.appendChild(edit)
+
+    } else if (b.t === 'divider') {
+      body.innerHTML = '<hr class="div">'
+
+    } else if (b.t === 'html') {
       const ta = document.createElement('textarea')
       ta.value = b.lines.join('\n')
-      if (b.t === 'code') { ta.className = 'code'; ta.spellcheck = false }
-      if (['h2','h3'].includes(b.t)) ta.rows = 1
-      else ta.rows = Math.max(2, b.lines.length + 1)
-      ta.oninput = () => { b.lines = ta.value.split('\n'); autoGrow(ta); dirty = true }
-      ta.onfocus = () => ta.setAttribute('data-ph', '')
-      ta.placeholder = { h2: '标题文字…', h3: '小标题…', code: '代码…', table: '| 列1 | 列2 |\n| --- | --- |\n| a | b |' }[b.t] || ''
-      if (b.t === 'code' && b.meta.lang !== undefined) {
-        const lang = document.createElement('input')
-        lang.placeholder = '语言（js / bash / html…）'
-        lang.value = b.meta.lang
-        lang.style.cssText = 'border:1px solid #e5e6eb;border-radius:6px;padding:4px 8px;font-size:12px;background:#fafafa;margin-bottom:6px;width:180px'
-        lang.oninput = () => { b.meta.lang = lang.value; dirty = true }
-        body.appendChild(lang)
-      }
+      ta.style.cssText = 'width:100%;border:1px dashed #e1e3e6;border-radius:6px;padding:8px;font-size:12px;font-family:ui-monospace,Menlo,monospace;background:#fafbfc;outline:none;resize:vertical'
+      ta.oninput = () => { b.lines = ta.value.split('\n'); dirty = true; schedulePreview() }
       body.appendChild(ta)
-      setTimeout(() => autoGrow(ta))
-    } else if (b.t === 'tip' || b.t === 'warning' || b.t === 'danger' || b.t === 'info') {
-      const ct = document.createElement('input')
-      ct.placeholder = '容器标题（可留空）'; ct.value = b.meta.title || ''
-      ct.style.cssText = 'font-weight:600;margin-bottom:6px'
-      ct.oninput = () => { b.meta.title = ct.value; dirty = true }
-      const ta = document.createElement('textarea')
-      ta.value = b.lines.join('\n'); ta.rows = Math.max(2, b.lines.length + 1)
-      ta.oninput = () => { b.lines = ta.value.split('\n'); autoGrow(ta); dirty = true }
-      body.appendChild(ct); body.appendChild(ta); setTimeout(() => autoGrow(ta))
-    } else if (b.t === 'image') {
-      body.innerHTML = `<div class="mrow"><input data-m="src" placeholder="图片地址 /images/xx.png" value="${esc(b.meta.src || '')}" style="flex:2"><input data-m="alt" placeholder="描述" value="${esc(b.meta.alt || '')}" style="flex:1"></div>`
-    } else if (b.t === 'demo') {
-      body.innerHTML = `<div class="mrow"><input data-m="src" placeholder="项目地址 /projects/xx/index.html" value="${esc(b.meta.src || '')}" style="flex:2"><input data-m="title" placeholder="标题" value="${esc(b.meta.title || '')}" style="flex:1"><input data-m="height" placeholder="高度 520px" value="${esc(b.meta.height || '520px')}" style="flex:1"></div>`
-    } else if (b.t === 'divider') {
-      body.innerHTML = '<div class="divider-line"></div>'
     }
-    el.appendChild(body)
 
+    el.appendChild(body)
     el.addEventListener('click', e => {
-      const a = e.target.dataset?.a
+      const a = e.target.dataset && e.target.dataset.a
       if (!a) return
       const i = blocks.findIndex(x => x.id === b.id)
-      if (a === 'del') { blocks.splice(i, 1); dirty = true; render() }
-      if (a === 'up' && i > 0) { [blocks[i-1], blocks[i]] = [blocks[i], blocks[i-1]]; dirty = true; render() }
-      if (a === 'down' && i < blocks.length - 1) { [blocks[i+1], blocks[i]] = [blocks[i], blocks[i+1]]; dirty = true; render() }
-    })
-    body.querySelectorAll('input[data-m]').forEach(inp => {
-      inp.oninput = () => { b.meta[inp.dataset.m] = inp.value; dirty = true }
+      if (a === 'del') { blocks.splice(i, 1); dirty = true; renderBlocks(); schedulePreview() }
+      if (a === 'up' && i > 0) { [blocks[i-1], blocks[i]] = [blocks[i], blocks[i-1]]; dirty = true; renderBlocks(); schedulePreview() }
+      if (a === 'down' && i < blocks.length - 1) { [blocks[i+1], blocks[i]] = [blocks[i], blocks[i+1]]; dirty = true; renderBlocks(); schedulePreview() }
+      if (a === 'add') { insertBlock(i + 1); }
     })
     wrap.appendChild(el)
   })
-  if (!blocks.length && !frontmatter) wrap.innerHTML += '<p style="color:#8f959e;font-size:13px;padding:20px 0">还没有内容块，点击下方插入或用 / 快捷添加</p>'
+
+  if (!blocks.length) {
+    const hint = document.createElement('div')
+    hint.style.cssText = 'color:#b4b9c0;font-size:14px;padding:16px 6px'
+    hint.textContent = '点击下方「＋ 添加块」开始写，或在正文里输入 / 快速插入'
+    wrap.appendChild(hint)
+  }
 }
 
-function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px' }
+function syncTableFromDom(b, tbl) {
+  const rows = [...tbl.querySelectorAll('tr')].map(tr => [...tr.children].map(td => td.innerText.trim()))
+  const header = rows[0] || []
+  const out = []
+  out.push('| ' + header.join(' | ') + ' |')
+  out.push('| ' + header.map(() => '---').join(' | ') + ' |')
+  rows.slice(1).forEach(r => out.push('| ' + r.join(' | ') + ' |'))
+  b.lines = out
+}
 
-function focusTask(id, idx) {
+function focusRow(id, idx) {
   const el = document.querySelector(`.blk[data-id="${id}"]`)
-  if (!el) return
-  const inputs = el.querySelectorAll('.task-row input:not([type="checkbox"])')
-  inputs[idx]?.focus()
+  const ces = el ? el.querySelectorAll('.row .rce') : []
+  ces[idx] && ces[idx].focus()
 }
 
-// ---------- 插入菜单 ----------
-function showMenu(anchor) {
+// 回车新建块 / 空块退格删除
+function onBlockKey(e, b, ce) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    const i = blocks.findIndex(x => x.id === b.id)
+    // 把光标之后的文字移到新块
+    const sel = window.getSelection()
+    let after = ''
+    if (sel && sel.rangeCount && ce.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0).cloneRange()
+      range.setStart(range.endContainer, range.endOffset)
+      const rest = document.createRange()
+      rest.selectNodeContents(ce)
+      rest.setStart(range.endContainer, range.endOffset)
+      after = rest.toString()
+      range.setEnd(rest.endContainer, rest.endOffset)
+      range.deleteContents()
+      b.lines = [ce.innerText]
+    }
+    insertBlock(i + 1, 'text', after ? [after] : [''])
+    dirty = true
+    schedulePreview()
+  }
+  if (e.key === 'Backspace' && ce.innerText === '' && blocks.length > 1) {
+    const i = blocks.findIndex(x => x.id === b.id)
+    if (i > 0) {
+      e.preventDefault()
+      blocks.splice(i, 1)
+      dirty = true
+      renderBlocks()
+      const prev = document.querySelector(`.blk[data-id="${blocks[i-1].id}"] .ce`)
+      prev && prev.focus()
+    }
+  }
+}
+
+function insertBlock(idx, type = 'text', lines) {
+  const b = blk(type, lines || seedLines(type), seedMeta(type))
+  blocks.splice(idx, 0, b)
+  dirty = true
+  renderBlocks()
+  schedulePreview()
+  setTimeout(() => {
+    const el = document.querySelector(`.blk[data-id="${b.id}"] .ce, .blk[data-id="${b.id}"] pre, .blk[data-id="${b.id}"] .rce`)
+    el && el.focus()
+  }, 30)
+}
+
+function seedLines(t) {
+  if (t === 'table') return ['| 列1 | 列2 |', '| --- | --- |', '| a | b |']
+  if (['ul', 'task'].includes(t)) return ['']
+  if (['h2', 'h3', 'text', 'quote', 'code', 'tip', 'warning', 'danger', 'info'].includes(t)) return ['']
+  return []
+}
+function seedMeta(t) {
+  if (t === 'code') return { lang: '' }
+  if (t === 'task') return { checked: [false] }
+  if (t === 'demo') return { src: '/projects/xxx/index.html', title: '演示', height: '520px' }
+  if (t === 'image') return { src: '', alt: '' }
+  if (['tip', 'warning', 'danger', 'info'].includes(t)) return { title: '', closed: true }
+  if (t === 'meta') return { chips: ['新标签'] }
+  return {}
+}
+
+// ================= 插入菜单 =================
+let menuTarget = null // {blockId, index}
+function showMenu(anchor, target) {
   const m = $('menu')
-  m.innerHTML = TYPES.map(x => `<button class="mi" data-t="${x.t}"><span class="ico">${x.ico}</span><span class="lb">${x.lb}</span></button>`).join('')
-  m.style.display = 'grid'
+  menuTarget = target || null
+  m.innerHTML = TYPES.map(x => `<button class="mi" data-t="${x.t}"><span class="ico">${x.ico}</span><span>${x.lb}</span><span style="margin-left:auto;font-size:11px;color:#b4b9c0">${x.desc}</span></button>`).join('')
+  m.style.display = 'block'
   const r = anchor.getBoundingClientRect()
-  m.style.left = Math.min(r.left, innerWidth - 480) + 'px'
-  m.style.top = Math.min(r.bottom + 6, innerHeight - 260) + 'px'
+  m.style.left = Math.min(r.left, innerWidth - 270) + 'px'
+  m.style.top = Math.min(r.bottom + 4, innerHeight - 380) + 'px'
   m.querySelectorAll('.mi').forEach(btn => btn.onclick = () => {
     const t = btn.dataset.t
-    const meta = t === 'code' ? { lang: '' } : t === 'demo' ? { src: '/projects/xxx/index.html', title: '演示', height: '520px' } : t === 'image' ? { src: '', alt: '' } : t === 'task' ? { checked: [false] } : {}
-    const seed = { h2: [''], h3: [''], text: [''], code: [''], tip: [''], warning: [''], danger: [''], info: [''], ul: [''], task: [''], quote: [''], table: ['| 列1 | 列2 |', '| --- | --- |', '| a | b |'] }[t]
-    blocks.push(blk(t, seed || [], meta))
-    dirty = true
     m.style.display = 'none'
-    render()
-    const last = $('blocks').lastElementChild
-    last?.querySelector('textarea, input')?.focus()
+    if (menuTarget && menuTarget.blockId) {
+      const i = blocks.findIndex(x => x.id === menuTarget.blockId)
+      blocks.splice(i, 1, blk(t, seedLines(t), seedMeta(t)))
+      dirty = true; renderBlocks(); schedulePreview()
+    } else {
+      insertBlock(blocks.length, t)
+    }
+    menuTarget = null
   })
 }
 document.addEventListener('click', e => {
   const m = $('menu')
-  if (m.style.display === 'grid' && !m.contains(e.target) && e.target !== $('add-btn')) m.style.display = 'none'
+  if (m.style.display === 'block' && !m.contains(e.target) && !e.target.closest('#add-btn')) m.style.display = 'none'
 })
-$('add-btn').onclick = e => { e.stopPropagation(); showMenu($('add-btn')) }
+$('add-btn').onclick = e => { e.stopPropagation(); menuTarget = null; showMenu($('add-btn'), null) }
 
-// ---------- 文件列表 ----------
+// ================= 右侧实时预览 =================
+let pvTimer = null
+function schedulePreview() {
+  clearTimeout(pvTimer)
+  pvTimer = setTimeout(renderPreview, 80)
+  $('status').textContent = '未保存'
+}
+
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+}
+
+function renderPreview() {
+  const body = $('pv-body')
+  let h = ''
+  if (title) h += `<h1>${inline(title)}</h1>`
+  for (const b of blocks) {
+    const L = b.lines
+    switch (b.t) {
+      case 'h2': h += `<h2>${inline(L[0] || '')}</h2>`; break
+      case 'h3': h += `<h3>${inline(L[0] || '')}</h3>`; break
+      case 'text': h += L.filter(x => x.trim()).map(x => `<p>${inline(x)}</p>`).join(''); break
+      case 'html': h += L.join('\n'); break
+      case 'code': h += `<pre><code>${esc(L.join('\n'))}</code></pre>`; break
+      case 'tip': case 'warning': case 'danger': case 'info':
+        h += `<div class="pv-callout ${b.t}">${b.meta.title ? `<div class="t">${inline(b.meta.title)}</div>` : ''}<div>${L.map(x => inline(x)).join('<br>')}</div></div>`; break
+      case 'ul': h += `<ul>${L.map(x => `<li>${inline(x)}</li>`).join('')}</ul>`; break
+      case 'task': h += `<div>${L.map((x, i) => `<div style="display:flex;gap:8px;align-items:flex-start;margin:3px 0"><input type="checkbox" disabled ${(b.meta.checked || [])[i] ? 'checked' : ''} style="margin-top:7px"><span style="${(b.meta.checked||[])[i] ? 'color:#b4b9c0;text-decoration:line-through' : ''}">${inline(x)}</span></div>`).join('')}</div>`; break
+      case 'quote': h += `<blockquote>${L.map(x => inline(x)).join('<br>')}</blockquote>`; break
+      case 'table': {
+        const rows = L.filter(r => !/^\|[\s:-]*\|/.test(r)).map(r => r.split('|').slice(1, -1).map(c => c.trim()))
+        if (rows.length) h += '<table><thead><tr>' + rows[0].map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>' + rows.slice(1).map(r => '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>'
+        break
+      }
+      case 'image': h += b.meta.src ? `<img src="${esc(b.meta.src)}" alt="${esc(b.meta.alt || '')}" style="max-width:100%;border-radius:8px">` : ''; break
+      case 'demo': h += `<div class="demo-embed"><iframe src="${esc(b.meta.src)}" style="height:${esc(b.meta.height || '520px')}" loading="lazy"></iframe></div>`; break
+      case 'divider': h += '<hr>'; break
+      case 'meta': h += `<div class="pv-meta">${(b.meta.chips || []).map(c => `<span>${esc(c)}</span>`).join('')}</div>`; break
+    }
+  }
+  body.innerHTML = h || '<p style="color:#c9cdd4">（空白笔记）</p>'
+}
+
+// ================= 文件操作 =================
 const GROUP_LABEL = {
   '/': '🏠 首页',
   'guide': '📘 使用指南',
@@ -516,7 +860,7 @@ const GROUP_LABEL = {
 const GROUP_ORDER = ['/', 'guide', 'notes/stage1', 'notes/stage2', 'notes/stage3', 'notes/appendix', 'projects']
 
 async function loadFiles() {
-  const { files } = await (await fetch(API + '/api/index')).json()
+  const { files } = await (await fetch('/api/index')).json()
   const groups = {}
   for (const f of files) {
     const dir = f.path.split('/').slice(0, -1).join('/') || '/'
@@ -525,83 +869,103 @@ async function loadFiles() {
   const q = $('search').value.toLowerCase()
   const wrap = $('files')
   wrap.innerHTML = ''
-  const dirs = Object.keys(groups).sort((a, b) => {
-    const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b)
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
-  })
-  for (const dir of dirs) {
-    const hit = groups[dir].filter(f => !q || f.path.toLowerCase().includes(q) || (f.title || '').toLowerCase().includes(q))
-    if (!hit.length) continue
-    wrap.insertAdjacentHTML('beforeend', `<div class="fgroup">${GROUP_LABEL[dir] || dir}</div>`)
-    for (const f of hit) {
-      const name = f.path.split('/').pop().replace('.md', '')
-      const label = f.title || name
-      wrap.insertAdjacentHTML('beforeend', `<div class="fitem ${f.path === curPath ? 'on' : ''}" data-p="${f.path}" title="${f.path}">${esc(label)}</div>`)
-    }
-  }
+  Object.keys(groups)
+    .sort((a, b) => {
+      const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b)
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+    })
+    .forEach(dir => {
+      const hit = groups[dir].filter(f => !q || f.path.toLowerCase().includes(q) || (f.title || '').toLowerCase().includes(q))
+      if (!hit.length) return
+      wrap.insertAdjacentHTML('beforeend', `<div class="fgroup">${GROUP_LABEL[dir] || dir}</div>`)
+      hit.forEach(f => {
+        const label = f.path === 'index.md' ? '首页' : (f.title || f.path.split('/').pop().replace('.md', ''))
+        wrap.insertAdjacentHTML('beforeend', `<div class="fitem ${f.path === curPath ? 'on' : ''}" data-p="${f.path}" title="${f.path}">${esc(label)}</div>`)
+      })
+    })
   wrap.querySelectorAll('.fitem').forEach(el => el.onclick = () => openFile(el.dataset.p))
 }
 
 async function openFile(p) {
-  const { content } = await (await fetch(API + '/api/file?path=' + encodeURIComponent(p))).json()
+  const res = await fetch('/api/file?path=' + encodeURIComponent(p))
+  const { content, error } = await res.json()
+  if (error) return toast(error, true)
   curPath = p
   parse(content)
   $('title').value = title
   $('title').disabled = false
-  $('file-now').textContent = 'docs/' + p
-  updatePreview()
-  render()
+  $('crumb').textContent = 'docs/' + p
+  $('fmbar').style.display = frontmatter ? 'inline-flex' : 'none'
+  $('fmta').value = frontmatter
+  renderBlocks()
+  renderPreview()
+  updatePvLink()
   loadFiles()
+  dirty = false
+  $('status').textContent = ''
+  localStorage.setItem('editor-last-path', p)
 }
 
-// ---------- 保存 / 发布 ----------
-async function save(silent = false) {
+function updatePvLink() {
   if (!curPath) return
+  const url = curPath === 'index.md' ? SITE + '/' : SITE + '/' + curPath.replace(/\.md$/, '').replace(/\/index$/, '')
+  $('pv-open').href = url
+}
+
+async function save(silent = false) {
+  if (!curPath) return toast('先打开一篇笔记', true)
   title = $('title').value
-  const r = await (await fetch(API + '/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: curPath, content: serialize() }) })).json()
-  if (r.ok) { if (!silent) toast('💾 已保存，站点预览会自动刷新'); dirty = false }
+  frontmatter = $('fmta').value
+  const r = await (await fetch('/api/save', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: curPath, content: serialize() })
+  })).json()
+  if (r.ok) { dirty = false; $('status').textContent = '已保存'; if (!silent) toast('已保存') }
   else toast('保存失败：' + r.error, true)
 }
 
 async function publish() {
   await save(true)
   $('btn-pub').disabled = true
-  $('pub-msg').textContent = '发布中…'
-  const r = await (await fetch(API + '/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'docs: 更新 ' + (curPath || 'notes') }) })).json()
+  $('status').textContent = '发布中…'
+  const r = await (await fetch('/api/publish', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'docs: 更新 ' + (curPath || 'notes') })
+  })).json()
   $('btn-pub').disabled = false
-  $('pub-msg').textContent = r.ok ? '✅ 已发布，1 分钟后线上生效' : '❌ 失败'
-  toast(r.ok ? '🚀 已推送到 GitHub，稍等片刻线上更新' : '发布失败：' + r.out, !r.ok)
-  if (!r.ok) console.error(r.out)
+  $('status').textContent = r.ok ? '已发布' : '发布失败'
+  toast(r.ok ? '已推送到 GitHub，约 1 分钟后线上生效' : '发布失败：' + r.out, !r.ok)
 }
 
-// ---------- 预览 ----------
-function updatePreview() {
-  if (!curPath) return
-  let url
-  if (curPath === 'index.md') url = SITE + '/'
-  else url = SITE + '/' + curPath.replace(/\.md$/, '').replace(/\/index$/, '')
-  $('pv').src = url
-  $('pv-open').href = url
-}
-$('btn-pv').onclick = () => {
-  const col = $('preview-col')
-  col.classList.toggle('show')
-  $('edit-col').classList.toggle('narrow')
-}
+// ================= 顶栏 / 快捷键 =================
+$('btn-save').onclick = () => save()
+$('btn-pub').onclick = publish
+$('btn-pv').onclick = () => $('preview-col').classList.toggle('hide')
+$('title').oninput = () => { title = $('title').value; dirty = true; schedulePreview() }
+$('fmbar').onclick = () => $('fmarea').classList.toggle('show')
+$('fmta').oninput = () => { frontmatter = $('fmta').value; dirty = true; schedulePreview() }
+$('search').oninput = loadFiles
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save() }
+  if (e.key === 'Escape') $('menu').style.display = 'none'
+})
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = '' } })
 
-// ---------- 新建 ----------
+// ================= 新建 =================
 $('btn-new').onclick = () => $('dlg-new').showModal()
 $('dlg-cancel').onclick = () => $('dlg-new').close()
 $('dlg-ok').onclick = async () => {
   const dir = $('new-dir').value, name = $('new-name').value.trim(), t = $('new-title').value.trim()
   if (!name) return toast('请填写文件名', true)
   const path = dir + name.replace(/\.md$/, '') + '.md'
-  const r = await (await fetch(API + '/api/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, title: t || name }) })).json()
-  if (r.ok) { $('dlg-new').close(); await loadFiles(); openFile(path); toast('📄 已创建，记得稍后在 config.mts 侧边栏注册') }
+  const r = await (await fetch('/api/create', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, title: t || name })
+  })).json()
+  if (r.ok) { $('dlg-new').close(); await loadFiles(); openFile(path); toast('已创建，记得在 config.mts 侧边栏注册') }
   else toast(r.error, true)
 }
 
-// ---------- toast / 快捷键 ----------
 let toastTimer
 function toast(msg, isErr = false) {
   const t = $('toast')
@@ -610,13 +974,15 @@ function toast(msg, isErr = false) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (t.className = ''), 2600)
 }
-document.addEventListener('keydown', e => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save() }
-})
-$('title').oninput = () => (dirty = true)
-$('search').oninput = loadFiles
 
-loadFiles()
+async function boot() {
+  await loadFiles()
+  const qp = new URLSearchParams(location.search).get('path')
+  const last = localStorage.getItem('editor-last-path')
+  const target = qp || last
+  if (target) openFile(target)
+}
+boot()
 </script>
 </body>
 </html>

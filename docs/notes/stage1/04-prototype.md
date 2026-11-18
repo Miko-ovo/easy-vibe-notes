@@ -13,13 +13,12 @@
 ## 📚 核心概念
 
 ::: warning 待填写
+:::
 
 ## 💡 我的理解与思考
 
 ## ✏️ 作业与练习
 
 - [ ] 完成一个自己的产品原型
-
-<DemoEmbed v-if="false" src="/projects/my-prototype/index.html" title="我的原型" />
 
 ## ❓ 疑问清单
