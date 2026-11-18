@@ -519,6 +519,32 @@ function ceEl(cls, text, ph, oninput) {
   return el
 }
 
+// ---------- Markdown 快捷输入规则（飞书/Notion 式） ----------
+function matchInputRule(txt) {
+  if (txt.startsWith('### ')) return { t: 'h3', rest: txt.slice(4) }
+  if (txt.startsWith('## ')) return { t: 'h3', rest: txt.slice(3) }
+  if (txt.startsWith('# ')) return { t: 'h2', rest: txt.slice(2) }
+  if (/^[-*]\s/.test(txt)) return { t: 'ul', rest: txt.slice(2) }
+  if (/^\[ \]\s/.test(txt) || /^\[\]\s/.test(txt)) return { t: 'task', rest: txt.replace(/^\[ ?\]\s/, '') }
+  if (txt.startsWith('> ')) return { t: 'quote', rest: txt.slice(2) }
+  if (txt === '```') return { t: 'code', rest: '' }
+  if (/^---\s*$/.test(txt)) return { t: 'divider', rest: '' }
+  return null
+}
+
+function focusBlock(id, atEnd = true) {
+  const el = document.querySelector(`.blk[data-id="${id}"]`)
+  const ce = el && el.querySelector('.ce, pre')
+  if (!ce) return
+  ce.focus()
+  const r = document.createRange()
+  r.selectNodeContents(ce)
+  r.collapse(!atEnd)
+  const s = window.getSelection()
+  s.removeAllRanges()
+  s.addRange(r)
+}
+
 function renderBlocks() {
   const wrap = $('blocks')
   wrap.innerHTML = ''
@@ -544,11 +570,21 @@ function renderBlocks() {
     body.className = 'blk-wrap'
 
     if (b.t === 'text' || b.t === 'h2' || b.t === 'h3' || b.t === 'quote') {
-      const ph = { text: '输入正文，或输入 / 插入其他类型…', h2: '标题', h3: '小标题', quote: '引用内容' }[b.t]
+      const ph = { text: '直接打字；输入 # 、- 、[] 、> 、``` 可自动变换样式', h2: '标题', h3: '小标题', quote: '引用内容' }[b.t]
       const ce = ceEl(b.t === 'text' ? 'p' : b.t, b.lines.join('\n'), ph, txt => {
         b.lines = txt.split('\n'); dirty = true; schedulePreview()
         // 输入 / 唤起插入菜单（飞书式）
         if (txt === '/') showMenu(ce, { blockId: b.id })
+        // Markdown 快捷输入：打字自动变身块
+        const conv = matchInputRule(txt)
+        if (conv) {
+          const i = blocks.findIndex(x => x.id === b.id)
+          const nb = blk(conv.t, conv.rest !== '' ? conv.rest.split('\n') : seedLines(conv.t), seedMeta(conv.t))
+          if (conv.rest !== '' && conv.rest != null) nb.lines = conv.rest.split('\n')
+          blocks.splice(i, 1, nb)
+          dirty = true; renderBlocks(); schedulePreview()
+          setTimeout(() => focusBlock(nb.id))
+        }
       })
       ce.onkeydown = e => onBlockKey(e, b, ce)
       body.appendChild(ce)
@@ -727,10 +763,18 @@ function renderBlocks() {
   if (!blocks.length) {
     const hint = document.createElement('div')
     hint.style.cssText = 'color:#b4b9c0;font-size:14px;padding:16px 6px'
-    hint.textContent = '点击「＋ 添加块」开始写，或在正文里输入 / 快速插入'
+    hint.textContent = '点击任意空白处开始打字；输入 # 、- 、[] 、> 、``` 会自动变换样式'
     wrap.appendChild(hint)
   }
 }
+
+// 点击空白处直接打字（飞书式：光标落到新正文块）
+$('edit-col').addEventListener('click', e => {
+  if (e.target.closest('.blk, #title, #fmbar, #fmarea, button, input, textarea, select, a, .gap, dialog')) return
+  if (!curPath) return
+  if (window.getSelection().toString()) return
+  insertBlock(blocks.length, 'text')
+})
 
 // ---------- 块间插入线 ----------
 function makeGap(i) {
@@ -834,13 +878,21 @@ function onBlockKey(e, b, ce) {
   }
   if (e.key === 'Backspace' && ce.innerText === '' && blocks.length > 1) {
     const i = blocks.findIndex(x => x.id === b.id)
+    // 飞书式：空标题/引用退格 → 变回正文；空正文退格 → 删除并聚焦上一块末尾
+    if (b.t !== 'text' && b.t !== 'ul' && b.t !== 'task') {
+      e.preventDefault()
+      blocks.splice(i, 1, blk('text', ['']))
+      dirty = true; renderBlocks(); schedulePreview()
+      setTimeout(() => focusBlock(blocks[i].id))
+      return
+    }
     if (i > 0) {
       e.preventDefault()
       blocks.splice(i, 1)
       dirty = true
       renderBlocks()
-      const prev = document.querySelector(`.blk[data-id="${blocks[i-1].id}"] .ce`)
-      prev && prev.focus()
+      schedulePreview()
+      setTimeout(() => focusBlock(blocks[i - 1].id))
     }
   }
 }
