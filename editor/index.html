@@ -86,46 +86,38 @@
   /* 中间编辑区 */
   #edit-inner { max-width: 760px; margin: 0 auto; padding: 40px 56px 45vh; }
   #title {
-    width: 100%; border: none; outline: none; font-size: 32px; font-weight: 700;
+    width: 100%; border: none; outline: none; font-size: 34px; font-weight: 700;
     padding: 4px 0 18px; font-family: inherit; color: #1f2329; background: transparent;
+    text-align: center;
   }
   #title::placeholder { color: #c9cdd4; }
 
-  /* 块 */
+  /* 块：无任何可见边框，像纯文档 */
   .blk { position: relative; margin: 2px 0; border-radius: 4px; }
-  .blk:hover { background: #fafbfc; }
-  .blk.dragging { opacity: .45; outline: 2px dashed #3370ff; border-radius: 6px; background: #f0f5ff; }
+  .blk.dragging { opacity: .45; outline: 2px dashed #3370ff; border-radius: 6px; }
   body.dragging-block { user-select: none; cursor: grabbing; }
+  .blk.sel { background: #e8efff; box-shadow: inset 2px 0 0 #3370ff; }
+  body.sel-mode * { user-select: none !important; }
 
-  /* 块之间的插入线（飞书式） */
-  .gap { height: 10px; position: relative; cursor: pointer; }
+  /* 块间：平时完全不可见，拖拽时才显示落位线 */
+  .gap { height: 8px; position: relative; }
   .gap::before {
-    content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 2px;
-    background: #3370ff; border-radius: 2px; opacity: 0; transition: opacity .1s;
+    content: ''; position: absolute; left: 0; right: 0; top: 3px; height: 2px;
+    background: #3370ff; border-radius: 2px; opacity: 0;
   }
-  .gap .gap-add {
-    position: absolute; left: 50%; top: 5px; transform: translate(-50%, -50%);
-    width: 22px; height: 14px; border: none; background: #3370ff; color: #fff;
-    border-radius: 8px; font-size: 11px; line-height: 1; cursor: pointer; display: none;
-    align-items: center; justify-content: center; padding: 0; box-shadow: 0 1px 4px rgba(51,112,255,.4);
-  }
-  .gap:hover::before, .gap.drag-over::before { opacity: 1; }
-  .gap:hover .gap-add, .gap.drag-over .gap-add { display: flex; }
-  .gap.drag-over::before { height: 3px; top: 3.5px; }
-  .gap.drag-over .gap-add { display: none; }
+  .gap.drag-over::before { opacity: 1; height: 3px; top: 2.5px; }
   .blk-wrap { padding: 2px 6px; }
-  .gutter {
-    position: absolute; left: -46px; top: 2px; display: flex; gap: 2px; opacity: 0;
-    transition: opacity .12s;
-  }
-  .blk:hover .gutter, .blk:focus-within .gutter { opacity: 1; }
+
+  /* 左侧只有一个 ＋（飞书式） */
+  .gutter { position: absolute; left: -34px; top: 0; opacity: 0; transition: opacity .12s; }
+  .blk:hover .gutter { opacity: 1; }
   .gb {
-    width: 20px; height: 22px; border: none; background: transparent; color: #8f959e;
-    cursor: pointer; border-radius: 4px; font-size: 13px; line-height: 1;
+    width: 24px; height: 24px; border: 1px solid #e1e3e6; background: #fff; color: #8f959e;
+    cursor: pointer; border-radius: 6px; font-size: 15px; line-height: 1;
     display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
   }
-  .gb:hover { background: #e8e9eb; color: #1f2329; }
-  .gb.danger:hover { background: #fde8e8; color: #d92d20; }
+  .gb:hover { background: #f2f3f5; color: #1f2329; border-color: #d9dce0; }
 
   .ce { outline: none; line-height: 1.85; min-height: 1.85em; word-break: break-word; }
   .ce:empty:before { content: attr(data-ph); color: #c9cdd4; pointer-events: none; }
@@ -279,13 +271,10 @@
 
   <div id="edit-col">
     <div id="edit-inner">
-      <input id="title" placeholder="未命名笔记" disabled>
+      <input id="title" placeholder="请输入标题" disabled>
       <div id="fmbar" class="fmbar" style="display:none">⚙️ 页面配置</div>
       <div id="fmarea" class="fmarea"><textarea id="fmta" spellcheck="false"></textarea></div>
       <div id="blocks"></div>
-      <div style="margin-top:10px">
-        <button class="gb" id="add-btn" style="width:auto;padding:0 8px;border:1px dashed #d9dce0;color:#8f959e;font-size:12px">＋ 添加块</button>
-      </div>
     </div>
   </div>
 </div>
@@ -553,13 +542,10 @@ function renderBlocks() {
     el.className = 'blk'
     el.dataset.id = b.id
 
-    // 左侧操作区（悬停显示，像飞书）
+    // 左侧：悬停只出现一个 ＋（飞书式）
     const g = document.createElement('div')
     g.className = 'gutter'
-    g.innerHTML = `
-      <button class="gb drag-handle" data-a="drag" title="按住拖动排序" style="cursor:grab">⋮⋮</button>
-      <button class="gb" data-a="add" title="在下方插入">＋</button>
-      <button class="gb danger" data-a="del" title="删除">✕</button>`
+    g.innerHTML = `<button class="gb" data-a="add" title="在此处插入块">＋</button>`
     el.appendChild(g)
 
     const body = document.createElement('div')
@@ -742,18 +728,39 @@ function renderBlocks() {
     el.addEventListener('click', e => {
       const a = e.target.dataset && e.target.dataset.a
       if (!a) return
-      const i = blocks.findIndex(x => x.id === b.id)
-      if (a === 'del') { blocks.splice(i, 1); dirty = true; renderBlocks(); schedulePreview() }
-      if (a === 'add') { insertBlock(i + 1); }
-      if (a === 'drag') return // mousedown 已处理
+      if (a === 'add') {
+        const i = blocks.findIndex(x => x.id === b.id)
+        showMenu(g.querySelector('.gb'), null, i + 1)
+      }
     })
-    // 按住手柄拖动排序（飞书式）
-    const handle = g.querySelector('.drag-handle')
-    handle.addEventListener('mousedown', e => startDrag(e, b.id))
+    // 按住块 350ms 拖动排序（无可见手柄，飞书式长按拖动）
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return
+      if (e.target.closest('.gutter, button, input, textarea, select, a')) return
+      const sx = e.clientX, sy = e.clientY
+      let timer = setTimeout(() => {
+        timer = null
+        dragSel = null
+        window.getSelection().removeAllRanges()
+        startDrag(e, b.id)
+      }, 350)
+      const cancel = ev => {
+        if (!timer) return
+        if (Math.abs(ev.clientX - sx) > 6 || Math.abs(ev.clientY - sy) > 6) {
+          clearTimeout(timer); timer = null
+          document.removeEventListener('mousemove', cancel, true)
+        }
+      }
+      document.addEventListener('mousemove', cancel, true)
+      document.addEventListener('mouseup', () => {
+        if (timer) { clearTimeout(timer); timer = null }
+        document.removeEventListener('mousemove', cancel, true)
+      }, { once: true })
+    })
     wrap.appendChild(el)
   })
 
-  // 末尾插入线
+  // 末尾落位线（仅拖拽时可见）
   wrap.appendChild(makeGap(blocks.length))
 
   if (!blocks.length) {
@@ -762,27 +769,135 @@ function renderBlocks() {
     hint.textContent = '点击任意空白处开始打字；输入 # 、- 、[] 、> 、``` 会自动变换样式'
     wrap.appendChild(hint)
   }
+  applyBlockSel()
 }
 
-// 点击空白处直接打字（飞书式：光标落到新正文块）
+// 点击空白处 / 块间空隙直接打字（飞书式：光标落到新正文块）
 $('edit-col').addEventListener('click', e => {
-  if (e.target.closest('.blk, #title, #fmbar, #fmarea, button, input, textarea, select, a, .gap, dialog')) return
   if (!curPath) return
   if (window.getSelection().toString()) return
+  const gap = e.target.closest('.gap')
+  if (gap) return insertBlock(parseInt(gap.dataset.idx, 10), 'text')
+  if (e.target.closest('.blk, #title, #fmbar, #fmarea, button, input, textarea, select, a, dialog')) return
   insertBlock(blocks.length, 'text')
 })
 
-// ---------- 块间插入线 ----------
+// 点到编辑区外，清除多选
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('#blocks')) clearBlockSel()
+})
+
+// ---------- 块间落位线（平时不可见） ----------
 function makeGap(i) {
   const g = document.createElement('div')
   g.className = 'gap'
   g.dataset.idx = i
-  g.innerHTML = '<button class="gap-add" title="在此插入">＋</button>'
-  g.onclick = e => {
-    e.stopPropagation()
-    showMenu(g, null, i)
-  }
   return g
+}
+
+// ---------- 拖动选中多个块 ----------
+let selIds = []
+let dragSel = null
+const blockEls = () => [...document.querySelectorAll('#blocks .blk')]
+
+function applyBlockSel() {
+  blockEls().forEach(el => el.classList.toggle('sel', selIds.includes(el.dataset.id)))
+}
+
+function clearBlockSel() {
+  if (!selIds.length) return
+  selIds = []
+  document.body.classList.remove('sel-mode')
+  applyBlockSel()
+}
+
+// 在块内按下 -> 若指针跨出该块（或按在左侧空白）则进入块多选
+$('blocks').addEventListener('mousedown', e => {
+  if (e.button !== 0) return
+  if (e.target.closest('.gutter, button, input, textarea, select, a')) return
+  const el = e.target.closest('.blk')
+  if (!el) return
+  clearBlockSel()
+  dragSel = { anchorId: el.dataset.id, sx: e.clientX, sy: e.clientY, active: false }
+})
+
+document.addEventListener('mousemove', e => {
+  if (!dragSel) return
+  if (document.body.classList.contains('dragging-block')) { dragSel = null; return }
+  const dy = Math.abs(e.clientY - dragSel.sy)
+  if (!dragSel.active) {
+    if (dy < 8) return
+    const anchorEl = document.querySelector(`.blk[data-id="${dragSel.anchorId}"]`)
+    if (!anchorEl) return
+    const r0 = anchorEl.getBoundingClientRect()
+    const cur = document.elementFromPoint(e.clientX, e.clientY)
+    const curBlk = cur && cur.closest && cur.closest('.blk')
+    const inMargin = dragSel.sx < r0.left
+    if (!inMargin && (!curBlk || curBlk === anchorEl)) return // 块内文字选择，交给浏览器
+    dragSel.active = true
+    document.body.classList.add('sel-mode')
+    window.getSelection().removeAllRanges()
+  }
+  const els = blockEls()
+  const ids = els.map(x => x.dataset.id)
+  let toId = null
+  for (const el of els) {
+    const r = el.getBoundingClientRect()
+    if (e.clientY >= r.top && e.clientY <= r.bottom) { toId = el.dataset.id; break }
+  }
+  if (!toId) {
+    const first = els[0], last = els[els.length - 1]
+    if (!first) return
+    const rf = first.getBoundingClientRect(), rl = last.getBoundingClientRect()
+    toId = e.clientY < rf.top ? ids[0] : e.clientY > rl.bottom ? ids[ids.length - 1] : null
+  }
+  if (!toId) return
+  const a = ids.indexOf(dragSel.anchorId), b = ids.indexOf(toId)
+  if (a < 0 || b < 0) return
+  selIds = ids.slice(Math.min(a, b), Math.max(a, b) + 1)
+  applyBlockSel()
+})
+
+document.addEventListener('mouseup', () => { dragSel = null })
+
+// 选中多块后的键盘操作
+document.addEventListener('keydown', e => {
+  if (!selIds.length) return
+  const tag = (document.activeElement.tagName || '').toLowerCase()
+  if (tag === 'input' || tag === 'textarea') return
+  if (e.key === 'Escape') { clearBlockSel(); return }
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    e.preventDefault()
+    blocks = blocks.filter(b => !selIds.includes(b.id))
+    if (!blocks.length) blocks = [blk('text', [''])]
+    selIds = []
+    document.body.classList.remove('sel-mode')
+    dirty = true
+    renderBlocks()
+    schedulePreview()
+    toast('已删除选中的块')
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+    e.preventDefault()
+    const md = blocks.filter(b => selIds.includes(b.id)).map(blockToMd).join('\n\n')
+    navigator.clipboard?.writeText(md)
+    toast('已复制选中内容')
+  }
+})
+
+function blockToMd(b) {
+  const L = b.lines || []
+  switch (b.t) {
+    case 'h2': return '## ' + (L[0] || '')
+    case 'h3': return '### ' + (L[0] || '')
+    case 'text': return L.join('\n')
+    case 'ul': return L.map(x => '- ' + x).join('\n')
+    case 'task': return L.map((x, i) => `- [${(b.meta.checked || [])[i] ? 'x' : ' '}] ${x}`).join('\n')
+    case 'quote': return L.map(x => '> ' + x).join('\n')
+    case 'code': return '```' + (b.meta.lang || '') + '\n' + L.join('\n') + '\n```'
+    case 'divider': return '---'
+    default: return L.join('\n')
+  }
 }
 
 // ---------- 拖拽排序 ----------
@@ -992,9 +1107,8 @@ function showMenu(anchor, target = null, insertAt = null) {
 }
 document.addEventListener('click', e => {
   const m = $('menu')
-  if (m.style.display === 'block' && !m.contains(e.target) && !e.target.closest('#add-btn')) m.style.display = 'none'
+  if (m.style.display === 'block' && !m.contains(e.target)) m.style.display = 'none'
 })
-$('add-btn').onclick = e => { e.stopPropagation(); menuTarget = null; showMenu($('add-btn'), null) }
 
 // ================= 状态标记 =================
 function schedulePreview() {
