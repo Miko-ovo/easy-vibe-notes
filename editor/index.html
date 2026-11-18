@@ -98,6 +98,9 @@
     border: 1px solid #e5e6eb; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: #fafafa;
   }
   .blk .divider-line { height: 2px; background: #e5e6eb; border-radius: 2px; margin: 8px 0; }
+  .task-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .task-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #10a37f; cursor: pointer; flex-shrink: 0; }
+  .task-row input:not([type="checkbox"]) { border: none; background: transparent; font-size: 14px; flex: 1; padding: 2px 0; }
 
   .add-bar { margin: 14px 0; }
   .add-btn {
@@ -207,6 +210,7 @@
 const API = ''
 const SITE = 'http://localhost:5173'
 let curPath = null
+let frontmatter = ''
 let blocks = []
 let title = ''
 let dirty = false
@@ -238,70 +242,106 @@ const TMAP = Object.fromEntries(TYPES.map(x => [x.t, x]))
 function blk(t, lines = [], meta = {}) { return { id: nid(), t, lines, meta } }
 
 // ---------- Markdown -> 块 ----------
-const BLOCK_START = /^(```|:::\s|#{1,6}\s|[-*]\s|>\s|\||---\s*$|!\[|<\w)/
+function isBlockStart(raw) {
+  const l = raw.trim()
+  if (!l) return true
+  return /^(```|:::\s|#{1,6}\s|[-*]\s|>\s?|\||---\s*$|!\[|<)/.test(l)
+}
 
 function parse(content) {
-  blocks = []; title = ''
+  blocks = []; title = ''; frontmatter = ''
   const lines = content.split('\n')
   let i = 0
-  if (lines[0] && /^# /.test(lines[0])) { title = lines[0].slice(2); i++ }
+
+  // YAML frontmatter：原样保留
+  if (lines[0] !== undefined && lines[0].trim() === '---') {
+    let j = 1
+    while (j < lines.length && lines[j].trim() !== '---') j++
+    if (j < lines.length) {
+      frontmatter = lines.slice(1, j).join('\n')
+      i = j + 1
+    }
+  }
   while (i < lines.length && lines[i].trim() === '') i++
+  if (lines[i] && /^# /.test(lines[i])) { title = lines[i].slice(2); i++ }
+
   while (i < lines.length) {
+    const before = i
     const l = lines[i]
-    if (/^```/.test(l)) {
-      const lang = l.slice(3).trim(); const buf = []; i++
-      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++])
-      i++; blocks.push(blk('code', buf, { lang })); continue
-    }
-    if (/^:::\s/.test(l)) {
-      const parts = l.slice(3).trim().split(/\s+/)
-      const kind = parts[0] || 'tip'; const ctitle = parts.slice(1).join(' ')
+    if (l.trim() === '') { i++; continue }
+
+    if (/^```/.test(l.trim())) {
+      const lang = l.trim().slice(3).trim(); const buf = []; i++
+      while (i < lines.length && !/^```/.test(lines[i].trim())) buf.push(lines[i++])
+      if (i < lines.length) i++
+      blocks.push(blk('code', buf, { lang }))
+    } else if (/^:::\s/.test(l.trim())) {
+      const parts = l.trim().slice(3).trim().split(/\s+/)
+      const kind = ['tip', 'warning', 'danger', 'info'].includes(parts[0]) ? parts[0] : 'tip'
+      const ctitle = parts[0] === kind ? parts.slice(1).join(' ') : parts.join(' ')
       const buf = []; i++
-      while (i < lines.length && !/^:::/.test(lines[i])) buf.push(lines[i++])
-      i++; blocks.push(blk(kind, buf, { title: ctitle })); continue
-    }
-    if (/^<DemoEmbed/.test(l)) {
+      while (i < lines.length && !/^:::/.test(lines[i].trim())) buf.push(lines[i++])
+      const closed = i < lines.length
+      if (closed) i++
+      blocks.push(blk(kind, buf, { title: ctitle, closed }))
+    } else if (/^<DemoEmbed/.test(l.trim())) {
       const src = (l.match(/src="([^"]*)"/) || [])[1] || ''
       const dt = (l.match(/title="([^"]*)"/) || [])[1] || '交互式演示'
       const h = (l.match(/height="([^"]*)"/) || [])[1] || '520px'
-      blocks.push(blk('demo', [], { src, title: dt, height: h })); i++; continue
+      blocks.push(blk('demo', [], { src, title: dt, height: h })); i++
+    } else if (/^!\[([^\]]*)\]\(([^)]*)\)$/.test(l.trim())) {
+      const m = l.trim().match(/^!\[([^\]]*)\]\(([^)]*)\)$/)
+      blocks.push(blk('image', [], { alt: m[1], src: m[2] })); i++
+    } else if (/^#{2,6}\s/.test(l.trim())) {
+      blocks.push(blk(l.trim().startsWith('## ') ? 'h2' : 'h3', [l.trim().replace(/^#{2,6}\s/, '')])); i++
+    } else if (/^[-*]\s\[.\]/.test(l.trim())) {
+      const buf = [], chk = []
+      while (i < lines.length && /^[-*]\s\[.\]/.test(lines[i].trim())) {
+        const t = lines[i++].trim()
+        chk.push(/\[[xX]\]/.test(t))
+        buf.push(t.replace(/^[-*]\s\[.\]\s?/, ''))
+      }
+      blocks.push(blk('task', buf, { checked: chk }))
+    } else if (/^[-*]\s/.test(l.trim())) {
+      const buf = []
+      while (i < lines.length && /^[-*]\s/.test(lines[i].trim()) && !/^[-*]\s\[.\]/.test(lines[i].trim())) buf.push(lines[i++].trim().replace(/^[-*]\s/, ''))
+      blocks.push(blk('ul', buf))
+    } else if (/^>\s?/.test(l.trim())) {
+      const buf = []
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) buf.push(lines[i++].trim().replace(/^>\s?/, ''))
+      blocks.push(blk('quote', buf))
+    } else if (/^\|/.test(l.trim())) {
+      const buf = []
+      while (i < lines.length && /^\|/.test(lines[i].trim())) buf.push(lines[i++].trim())
+      blocks.push(blk('table', buf))
+    } else if (/^---\s*$/.test(l.trim())) {
+      blocks.push(blk('divider')); i++
+    } else if (/^</.test(l.trim())) {
+      // 原生 HTML 块（如 note-meta）：一直收到闭合标签
+      const buf = []
+      while (i < lines.length && lines[i].trim() !== '') {
+        const cur = lines[i++]
+        buf.push(cur)
+        if (/^<\/(div|p|table)>$/i.test(cur.trim()) || /\/>$/.test(cur.trim())) break
+      }
+      blocks.push(blk('text', buf.length ? buf : ['']))
+    } else {
+      // 普通段落：收到空行或下一个块开始
+      const buf = []
+      while (i < lines.length && !isBlockStart(lines[i])) buf.push(lines[i++])
+      if (!buf.length) buf.push(lines[i++]) // 兜底：保证一定前进
+      blocks.push(blk('text', buf))
     }
-    if (/^!\[([^\]]*)\]\(([^)]*)\)$/.test(l)) {
-      blocks.push(blk('image', [], { alt: RegExp.$1, src: RegExp.$2 })); i++; continue
-    }
-    if (/^#{2,6}\s/.test(l)) {
-      blocks.push(blk(l.startsWith('## ') ? 'h2' : 'h3', [l.replace(/^#{2,6}\s/, '')])); i++; continue
-    }
-    if (/^[-*]\s\[.\]/.test(l)) {
-      const buf = []; while (i < lines.length && /^[-*]\s\[.\]/.test(lines[i])) buf.push(lines[i++].replace(/^[-*]\s\[.\]\s?/, ''))
-      blocks.push(blk('task', buf)); continue
-    }
-    if (/^[-*]\s/.test(l)) {
-      const buf = []; while (i < lines.length && /^[-*]\s/.test(lines[i]) && !/^[-*]\s\[.\]/.test(lines[i])) buf.push(lines[i++].replace(/^[-*]\s/, ''))
-      blocks.push(blk('ul', buf)); continue
-    }
-    if (/^>\s/.test(l)) {
-      const buf = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''))
-      blocks.push(blk('quote', buf)); continue
-    }
-    if (/^\|/.test(l)) {
-      const buf = []; while (i < lines.length && /^\|/.test(lines[i])) buf.push(lines[i++])
-      blocks.push(blk('table', buf)); continue
-    }
-    if (/^---\s*$/.test(l)) { blocks.push(blk('divider')); i++; continue }
-    if (BLOCK_START.test(l)) { // 兜底（如自定义 HTML）
-      const buf = []; while (i < lines.length && lines[i].trim() !== '' && !BLOCK_START.test(lines[i]) === false) buf.push(lines[i++])
-      blocks.push(blk('text', buf)); continue
-    }
-    const buf = []
-    while (i < lines.length && lines[i].trim() !== '' && !BLOCK_START.test(lines[i])) buf.push(lines[i++])
-    blocks.push(blk('text', buf.length ? buf : ['']))
+
+    if (i === before) i++ // 终极保险：绝不空转
   }
 }
 
 // ---------- 块 -> Markdown ----------
 function serialize() {
-  const out = [`# ${title}`, '']
+  const out = []
+  if (frontmatter) out.push('---', frontmatter, '---', '')
+  if (title) out.push(`# ${title}`, '')
   for (const b of blocks) {
     const L = b.lines
     switch (b.t) {
@@ -310,9 +350,9 @@ function serialize() {
       case 'text': out.push(L.join('\n')); break
       case 'code': out.push('```' + (b.meta.lang || '') + '\n' + L.join('\n') + '\n```'); break
       case 'tip': case 'warning': case 'danger': case 'info':
-        out.push(`::: ${b.t}${b.meta.title ? ' ' + b.meta.title : ''}\n${L.join('\n')}\n:::`); break
+        out.push(`::: ${b.t}${b.meta.title ? ' ' + b.meta.title : ''}\n${L.join('\n')}` + (b.meta.closed === false ? '' : '\n:::')); break
       case 'ul': out.push(L.map(x => `- ${x}`).join('\n')); break
-      case 'task': out.push(L.map(x => `- [ ] ${x}`).join('\n')); break
+      case 'task': out.push(L.map((x, i) => `- [${(b.meta.checked || [])[i] ? 'x' : ' '}] ${x}`).join('\n')); break
       case 'quote': out.push(L.map(x => `> ${x}`).join('\n')); break
       case 'table': out.push(L.join('\n')); break
       case 'image': out.push(`![${b.meta.alt || ''}](${b.meta.src || ''})`); break
@@ -328,6 +368,22 @@ function serialize() {
 function render() {
   const wrap = $('blocks')
   wrap.innerHTML = ''
+
+  // frontmatter 专用块（如首页 home 布局）
+  if (frontmatter) {
+    const fm = document.createElement('div')
+    fm.className = 'blk'
+    fm.innerHTML = '<span class="tag t-text">FM 页面配置</span>'
+    const ta = document.createElement('textarea')
+    ta.className = 'code'
+    ta.spellcheck = false
+    ta.value = frontmatter
+    ta.rows = Math.min(14, frontmatter.split('\n').length + 1)
+    ta.oninput = () => { frontmatter = ta.value; dirty = true }
+    fm.appendChild(ta)
+    wrap.appendChild(fm)
+  }
+
   blocks.forEach((b, idx) => {
     const def = TMAP[b.t]
     const el = document.createElement('div')
@@ -341,7 +397,25 @@ function render() {
       <span class="tag ${def.cls}">${def.tag}</span>`
 
     const body = document.createElement('div')
-    if (['h2','h3','text','code','ul','task','quote','table'].includes(b.t)) {
+    if (b.t === 'task') {
+      b.meta.checked = b.meta.checked || []
+      b.lines.forEach((ln, li) => {
+        const row = document.createElement('div')
+        row.className = 'task-row'
+        const cb = document.createElement('input')
+        cb.type = 'checkbox'; cb.checked = !!b.meta.checked[li]
+        cb.onchange = () => { b.meta.checked[li] = cb.checked; dirty = true }
+        const inp = document.createElement('input')
+        inp.value = ln; inp.placeholder = '待办事项…'
+        inp.oninput = () => { b.lines[li] = inp.value; dirty = true }
+        inp.onkeydown = e => {
+          if (e.key === 'Enter') { e.preventDefault(); b.lines.splice(li + 1, 0, ''); b.meta.checked.splice(li + 1, 0, false); dirty = true; render(); focusTask(b.id, li + 1) }
+          if (e.key === 'Backspace' && inp.value === '' && b.lines.length > 1) { e.preventDefault(); b.lines.splice(li, 1); b.meta.checked.splice(li, 1); dirty = true; render(); focusTask(b.id, Math.max(0, li - 1)) }
+        }
+        row.appendChild(cb); row.appendChild(inp)
+        body.appendChild(row)
+      })
+    } else if (['h2','h3','text','code','ul','quote','table'].includes(b.t)) {
       const ta = document.createElement('textarea')
       ta.value = b.lines.join('\n')
       if (b.t === 'code') { ta.className = 'code'; ta.spellcheck = false }
@@ -391,10 +465,17 @@ function render() {
     })
     wrap.appendChild(el)
   })
-  if (!blocks.length) wrap.innerHTML = '<p style="color:#8f959e;font-size:13px;padding:20px 0">还没有内容块，点击下方插入或用 / 快捷添加</p>'
+  if (!blocks.length && !frontmatter) wrap.innerHTML += '<p style="color:#8f959e;font-size:13px;padding:20px 0">还没有内容块，点击下方插入或用 / 快捷添加</p>'
 }
 
 function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px' }
+
+function focusTask(id, idx) {
+  const el = document.querySelector(`.blk[data-id="${id}"]`)
+  if (!el) return
+  const inputs = el.querySelectorAll('.task-row input:not([type="checkbox"])')
+  inputs[idx]?.focus()
+}
 
 // ---------- 插入菜单 ----------
 function showMenu(anchor) {
@@ -406,7 +487,7 @@ function showMenu(anchor) {
   m.style.top = Math.min(r.bottom + 6, innerHeight - 260) + 'px'
   m.querySelectorAll('.mi').forEach(btn => btn.onclick = () => {
     const t = btn.dataset.t
-    const meta = t === 'code' ? { lang: '' } : t === 'demo' ? { src: '/projects/xxx/index.html', title: '演示', height: '520px' } : t === 'image' ? { src: '', alt: '' } : {}
+    const meta = t === 'code' ? { lang: '' } : t === 'demo' ? { src: '/projects/xxx/index.html', title: '演示', height: '520px' } : t === 'image' ? { src: '', alt: '' } : t === 'task' ? { checked: [false] } : {}
     const seed = { h2: [''], h3: [''], text: [''], code: [''], tip: [''], warning: [''], danger: [''], info: [''], ul: [''], task: [''], quote: [''], table: ['| 列1 | 列2 |', '| --- | --- |', '| a | b |'] }[t]
     blocks.push(blk(t, seed || [], meta))
     dirty = true
@@ -423,23 +504,39 @@ document.addEventListener('click', e => {
 $('add-btn').onclick = e => { e.stopPropagation(); showMenu($('add-btn')) }
 
 // ---------- 文件列表 ----------
+const GROUP_LABEL = {
+  '/': '🏠 首页',
+  'guide': '📘 使用指南',
+  'notes/stage1': '🚀 第一阶段 · 零基础入门',
+  'notes/stage2': '🛠️ 第二阶段 · 全栈开发',
+  'notes/stage3': '⚡ 第三阶段 · 高级进阶',
+  'notes/appendix': '📎 附录笔记',
+  'projects': '🏆 项目展示'
+}
+const GROUP_ORDER = ['/', 'guide', 'notes/stage1', 'notes/stage2', 'notes/stage3', 'notes/appendix', 'projects']
+
 async function loadFiles() {
-  const { files } = await (await fetch(API + '/api/files')).json()
+  const { files } = await (await fetch(API + '/api/index')).json()
   const groups = {}
   for (const f of files) {
-    const dir = f.split('/').slice(0, -1).join('/') || '/'
+    const dir = f.path.split('/').slice(0, -1).join('/') || '/'
     ;(groups[dir] = groups[dir] || []).push(f)
   }
   const q = $('search').value.toLowerCase()
   const wrap = $('files')
   wrap.innerHTML = ''
-  for (const [dir, fs_] of Object.entries(groups)) {
-    const hit = fs_.filter(f => !q || f.toLowerCase().includes(q))
+  const dirs = Object.keys(groups).sort((a, b) => {
+    const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b)
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+  })
+  for (const dir of dirs) {
+    const hit = groups[dir].filter(f => !q || f.path.toLowerCase().includes(q) || (f.title || '').toLowerCase().includes(q))
     if (!hit.length) continue
-    wrap.insertAdjacentHTML('beforeend', `<div class="fgroup">${dir}</div>`)
+    wrap.insertAdjacentHTML('beforeend', `<div class="fgroup">${GROUP_LABEL[dir] || dir}</div>`)
     for (const f of hit) {
-      const name = f.split('/').pop().replace('.md', '')
-      wrap.insertAdjacentHTML('beforeend', `<div class="fitem ${f === curPath ? 'on' : ''}" data-p="${f}">${name}</div>`)
+      const name = f.path.split('/').pop().replace('.md', '')
+      const label = f.title || name
+      wrap.insertAdjacentHTML('beforeend', `<div class="fitem ${f.path === curPath ? 'on' : ''}" data-p="${f.path}" title="${f.path}">${esc(label)}</div>`)
     }
   }
   wrap.querySelectorAll('.fitem').forEach(el => el.onclick = () => openFile(el.dataset.p))

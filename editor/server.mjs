@@ -77,6 +77,19 @@ const server = http.createServer(async (req, res) => {
   try {
     if (p === '/api/files') return json(res, 200, { files: listMd(DOCS) })
 
+    if (p === '/api/index') {
+      const files = listMd(DOCS).map(f => {
+        let title = ''
+        try {
+          const c = fs.readFileSync(path.join(DOCS, f), 'utf8')
+          const m = c.match(/^#\s+(.+)$/m)
+          title = m ? m[1].trim() : ''
+        } catch {}
+        return { path: f, title }
+      })
+      return json(res, 200, { files })
+    }
+
     if (p === '/api/file') {
       const full = resolveMd(u.searchParams.get('path'))
       if (!full) return json(res, 400, { error: '非法路径' })
